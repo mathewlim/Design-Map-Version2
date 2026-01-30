@@ -132,7 +132,7 @@ function addActivity(activityData = {}) {
                     </select>
                 </div>
                 <div class="form-group activity-extra">
-                    <label>Tech Tool (Optional) <span class="field-hint">≤ 25 characters</span></label>
+                    <label>Tech Tool <span class="field-hint">≤ 25 characters</span></label>
                     <input type="text" data-id="${activityCounter}" data-field="tech" data-max="25" maxlength="25" placeholder="e.g., Padlet, SLS, HTML Interactives, Learning Assistant">
                     <div class="char-counter" data-counter-for="tech">0/25</div>
                 </div>
