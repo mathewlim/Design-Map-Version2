@@ -120,8 +120,9 @@ function addActivity(activityData = {}) {
                     </div>
                 </div>
                 <div class="form-group activity-extra">
-                    <label>Activity Details <span class="required">*</span></label>
-                    <textarea data-id="${activityCounter}" data-field="details" placeholder="Describe the activity..."></textarea>
+                    <label>Activity Details <span class="required">*</span> <span class="field-hint">≤ 115 characters</span></label>
+                    <textarea data-id="${activityCounter}" data-field="details" data-max="115" maxlength="115" placeholder="Describe the activity..."></textarea>
+                    <div class="char-counter" data-counter-for="details">0/115</div>
                 </div>
                 <div class="form-group activity-extra">
                     <label>Key Application of Technology</label>
@@ -131,8 +132,9 @@ function addActivity(activityData = {}) {
                     </select>
                 </div>
                 <div class="form-group activity-extra">
-                    <label>Tech Tool (Optional)</label>
-                    <input type="text" data-id="${activityCounter}" data-field="tech" placeholder="e.g., Padlet, SLS, HTML Interactives, Learning Assistant">
+                    <label>Tech Tool (Optional) <span class="field-hint">≤ 25 characters</span></label>
+                    <input type="text" data-id="${activityCounter}" data-field="tech" data-max="25" maxlength="25" placeholder="e.g., Padlet, SLS, HTML Interactives, Learning Assistant">
+                    <div class="char-counter" data-counter-for="tech">0/25</div>
                 </div>
             </div>
             <div class="activity-actions">
@@ -147,6 +149,7 @@ function addActivity(activityData = {}) {
             field.value = activity[key];
         }
     });
+    updateCharCounters(div);
 }
 
 function handleActivityChange(e) {
@@ -165,6 +168,9 @@ function handleActivityChange(e) {
             }
         }
         activity[field] = e.target.value;
+    }
+    if (e.target.matches('[data-max]')) {
+        updateCharCounters(e.target.closest('.activity-item'));
     }
     saveState();
 }
@@ -292,6 +298,19 @@ function showSaveIndicator() {
     }, 2000);
 }
 
+function updateCharCounters(scope) {
+    const root = scope || document;
+    root.querySelectorAll('[data-max]').forEach(field => {
+        const max = parseInt(field.dataset.max, 10);
+        if (!max) return;
+        const counter = field.parentElement?.querySelector(`.char-counter[data-counter-for="${field.dataset.field}"]`);
+        if (!counter) return;
+        const count = (field.value || '').length;
+        counter.textContent = `${count}/${max}`;
+        counter.classList.toggle('over', count > max);
+    });
+}
+
 function switchTab(tabName) {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
@@ -408,11 +427,11 @@ function renderMap(filledActivities, meta) {
         html += `
             <div class="activity-slot" style="grid-row:${rowIndex}; grid-column:${columnIndex};">
                 <div class="activity-box ${act.alp}">
-                    ${act.time ? `<div class="activity-time-badge">${act.time} min</div>` : ''}
+                    ${act.time ? `<div class="activity-time-inline">Activity ${act.id} (${act.time} min)</div>` : `<div class="activity-time-inline">Activity ${act.id}</div>`}
                     ${keyAppLabel ? `<div class="activity-alp-tag"><span class="alp-text">${keyAppLabel}</span></div>` : ''}
-                    <div class="activity-title">Activity ${act.id}</div>
+                    <div class="activity-title"></div>
                     <div class="activity-details">${act.details}</div>
-                    ${act.tech ? `<div class="activity-tech">[Tech tool]: ${act.tech}</div>` : ''}
+                    ${act.tech ? `<div class="activity-tech">[Tool]: ${act.tech}</div>` : ''}
                 </div>
             </div>
         `;

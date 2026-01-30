@@ -147,6 +147,25 @@ label {
     font-size: 0.95rem;
 }
 
+.field-hint {
+    font-weight: 500;
+    font-size: 0.82rem;
+    color: var(--text-light);
+    margin-left: 0.35rem;
+}
+
+.char-counter {
+    margin-top: 0.35rem;
+    font-size: 0.78rem;
+    color: var(--text-light);
+    text-align: right;
+}
+
+.char-counter.over {
+    color: #b42318;
+    font-weight: 600;
+}
+
 input,
 textarea,
 select {

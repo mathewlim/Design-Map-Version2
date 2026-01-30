@@ -1,6 +1,6 @@
-# Design Map Generator
+﻿# Design Map Generator
 
-A browser-based tool for creating lesson design maps and reflection charts for technology‑enabled lessons.
+A browser-based tool for creating lesson design maps and reflection charts for technology-enabled lessons.
 
 ## What this tool does
 
@@ -15,7 +15,7 @@ A browser-based tool for creating lesson design maps and reflection charts for t
 
 - Topic, level, student profile, learning outcomes, prerequisite knowledge, and learning issues.
 - Level of technology integration (optional): Replacement, Amplification, Transformation.
-  - “Optional” will not appear on the generated design map.
+  - "Optional" will not appear on the generated design map.
 
 ### Activity builder
 
@@ -27,17 +27,20 @@ A browser-based tool for creating lesson design maps and reflection charts for t
   - Key Application of Technology (optional)
   - Tech tool (optional)
 - Required fields are clearly marked with `*`.
-- Delete specific activities inline.
+- Inline character counters to keep entries within the card size:
+  - Activity Details: 115 characters max
+  - Tech Tool: 25 characters max
+- Delete specific activities inline ("Delete Activity").
 - Activities are automatically renumbered after deletion.
 
 ### Design Map output
 
 - Activities plotted on a social plane (Community, Class, Group, Individual) against time flow.
-- Activity cards color‑coded by Active Learning Process (consistent with charts).
+- Activity cards color-coded by Active Learning Process (consistent with charts).
 - Key Application of Technology appears as a vertical tag on each activity card.
-- Time badges appear on each activity.
+- Time appears inline as "Activity X (N min)" at the top of each card.
 - Legend for Active Learning Process colors.
-- Duration mismatch warning appears if total activity time ≠ planned lesson duration.
+- Duration mismatch warning appears if total activity time != planned lesson duration.
 
 ### Charts (reflection)
 
@@ -66,13 +69,12 @@ A browser-based tool for creating lesson design maps and reflection charts for t
 4. Review reflection charts.
 5. Export images for sharing or documentation.
 
-## Tip: Use with a lesson‑planning chatbot
+## Tip: Use with a lesson-planning chatbot
 
-After generating the Design Map image, you can upload it to a lesson‑planning chatbot (e.g., a **Lesson Collaborator Chatbot**) to:
+After generating the Design Map image, you can upload it to a lesson-planning chatbot (e.g., a **Lesson Collaborator Chatbot**) to:
 
 - Summarize the lesson flow.
 - Suggest refinements for pacing and interaction balance.
 - Draft a full lesson plan from the map structure.
 
 This creates a fast feedback loop between design mapping and lesson writing.
-
