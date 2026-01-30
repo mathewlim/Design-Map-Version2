@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Design Map Generator</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Karla:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2c5f7c;
+            --secondary: #f4a261;
+            --bg: #faf9f6;
+            --card-bg: #ffffff;
+            --text: #2d3748;
+            --text-light: #718096;
+            --border: #e2e8f0;
+            
+            /* Active Learning Process Colors */
+            --activate: #6aced8;
+            --promote: #cc6bff;
+            --facilitate: #ffc000;
+            --monitor: #f6bbbf;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Karla', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, #1a3a4d 100%);
+            color: white;
+            padding: 3rem 2rem 2.5rem;
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-family: 'DM Serif Display', serif;
+            font-size: 3.5rem;
+            margin-bottom: 0.5rem;
+            font-weight: 400;
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .tab {
+            padding: 1rem 2rem;
+            background: none;
+            border: none;
+            font-family: 'Karla', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-light);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+        }
+
+        .tab:hover {
+            color: var(--primary);
+        }
+
+        .tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--secondary);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .section {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            border: 1px solid var(--border);
+        }
+
+        .section-title {
+            font-family: 'DM Serif Display', serif;
+            font-size: 1.75rem;
+            margin-bottom: 1.5rem;
+            color: var(--primary);
+            border-left: 4px solid var(--secondary);
+            padding-left: 1rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 0.875rem 1rem;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-family: 'Karla', sans-serif;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background: var(--bg);
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(44, 95, 124, 0.1);
+        }
+
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .activity-item {
+            background: var(--bg);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .activity-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .activity-number {
+            background: var(--primary);
+            color: white;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+        }
+
+        .activity-fields {
+            display: grid;
+            grid-template-columns: 2fr 2fr 1fr;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 0.875rem 2rem;
+            border: none;
+            border-radius: 8px;
+            font-family: 'Karla', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, #1a3a4d 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(44, 95, 124, 0.3);
+        }
+
+        .btn-secondary {
+            background: var(--secondary);
+            color: white;
+        }
+
+        .btn-add {
+            background: #10b981;
+            color: white;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .btn-add:hover {
+            background: #059669;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        /* Design Map Styles */
+        .design-map-wrapper {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+        }
+
+        .design-map {
+            display: grid;
+            grid-template-columns: 150px 1fr;
+            gap: 0;
+            border-left: 3px solid #333;
+            border-bottom: 3px solid #333;
+            margin-top: 2rem;
+            min-height: 500px;
+        }
+
+        .social-level {
+            display: contents;
+        }
+
+        .social-label {
+            font-weight: 700;
+            font-size: 0.9rem;
+            text-align: right;
+            padding: 1rem;
+            border-right: 3px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            background: #fafafa;
+        }
+
+        .activities-column {
+            padding: 1rem;
+            border-bottom: 2px solid #e0e0e0;
+            display: flex;
+            gap: 1.5rem;
+            align-items: stretch;
+            min-height: 150px;
+        }
+
+        .activity-box {
+            padding: 1rem;
+            border-radius: 6px;
+            min-width: 200px;
+            max-width: 250px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .activity-box.activate { background: var(--activate); }
+        .activity-box.promote { background: var(--promote); color: white; }
+        .activity-box.facilitate { background: var(--facilitate); }
+        .activity-box.monitor { background: var(--monitor); }
+
+        .activity-title {
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .activity-details {
+            font-size: 0.85rem;
+            line-height: 1.4;
+            flex: 1;
+        }
+
+        .activity-tech {
+            margin-top: 0.5rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            font-style: italic;
+        }
+
+        .activity-time-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #333;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .provide-info {
+            position: absolute;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%) rotate(-90deg);
+            transform-origin: center;
+            background: #333;
+            color: white;
+            padding: 0.5rem 1rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .arrow-down {
+            width: 2px;
+            height: 40px;
+            background: #333;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .arrow-down::after {
+            content: '';
+            position: absolute;
+            bottom: -6px;
+            left: -4px;
+            width: 0;
+            height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 8px solid #333;
+        }
+
+        .axis-label {
+            position: absolute;
+            font-weight: 600;
+            color: #666;
+        }
+
+        .axis-label.x-axis {
+            bottom: -35px;
+            right: 20px;
+        }
+
+        .axis-label.y-axis {
+            left: -35px;
+            top: 50%;
+            transform: translateY(-50%) rotate(-90deg);
+        }
+
+        .legend-table {
+            border: 2px solid #333;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 2rem;
+        }
+
+        .legend-header {
+            background: #f5f5f5;
+            padding: 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            font-weight: 700;
+            border-bottom: 2px solid #333;
+        }
+
+        .legend-row {
+            display: flex;
+            padding: 0.75rem;
+            border-bottom: 1px solid #ddd;
+            align-items: center;
+        }
+
+        .legend-row:last-child {
+            border-bottom: none;
+        }
+
+        .legend-color-box {
+            width: 30px;
+            height: 30px;
+            margin-right: 1rem;
+            border-radius: 4px;
+        }
+
+        .legend-text {
+            flex: 1;
+        }
+
+        .legend-time {
+            font-weight: 600;
+            min-width: 120px;
+            text-align: right;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-light);
+        }
+
+        @media (max-width: 768px) {
+            h1 { font-size: 2.5rem; }
+            .activity-fields { grid-template-columns: 1fr; }
+            .design-map { grid-template-columns: 100px 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <h1>Design Map Generator</h1>
+            <p class="subtitle">Create visual design maps to illustrate learning interactions and data flow</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="tabs">
+            <button class="tab active" data-tab="input">📝 Input</button>
+            <button class="tab" data-tab="output">🗺️ Design Map</button>
+        </div>
+
+        <!-- INPUT TAB -->
+        <div id="input" class="tab-content active">
+            <div class="section">
+                <h2 class="section-title">Overview</h2>
+                <div class="form-group">
+                    <label for="topic">Topic</label>
+                    <input type="text" id="topic" placeholder="Enter lesson topic">
+                </div>
+                <div class="form-group">
+                    <label for="level">Level</label>
+                    <input type="text" id="level" placeholder="e.g., Secondary 1">
+                </div>
+                <div class="form-group">
+                    <label for="duration">Duration (minutes)</label>
+                    <input type="number" id="duration" value="60">
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">Learning Activities</h2>
+                <div id="activitiesContainer"></div>
+                <button class="btn btn-add" id="addActivityBtn">
+                    <span style="font-size: 1.5rem;">+</span> Add Activity
+                </button>
+            </div>
+
+            <div class="action-buttons">
+                <button class="btn btn-primary" id="generateBtn">🎨 Generate Design Map</button>
+                <button class="btn btn-secondary" id="clearBtn">🔄 Clear All</button>
+            </div>
+        </div>
+
+        <!-- OUTPUT TAB -->
+        <div id="output" class="tab-content">
+            <div class="section">
+                <h2 class="section-title">Your Design Map</h2>
+                <div id="designMapContainer">
+                    <div class="empty-state">
+                        <div style="font-size: 4rem; opacity: 0.3;">🗺️</div>
+                        <h3>No Design Map Yet</h3>
+                        <p>Fill in activities and click "Generate Design Map"</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let activities = [];
+        let activityCounter = 0;
+
+        const interactionTypes = [
+            { value: 'community', label: 'Community (Student - Community)' },
+            { value: 'class', label: 'Class (Teacher - Student)' },
+            { value: 'group', label: 'Group (Student - Student)' },
+            { value: 'individual', label: 'Individual (Student - Content)' }
+        ];
+
+        const alpStrategies = [
+            { value: 'activate', label: 'Activate Learning', color: '#6aced8' },
+            { value: 'promote', label: 'Promote thinking and discussion', color: '#cc6bff' },
+            { value: 'facilitate', label: 'Facilitate Demonstration of Learning', color: '#ffc000' },
+            { value: 'monitor', label: 'Monitor and Provide Feedback', color: '#f6bbbf' }
+        ];
+
+        function init() {
+            addActivity(); // Start with one activity
+            setupEventListeners();
+        }
+
+        function setupEventListeners() {
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    switchTab(this.getAttribute('data-tab'));
+                });
+            });
+
+            document.getElementById('addActivityBtn').addEventListener('click', addActivity);
+            document.getElementById('generateBtn').addEventListener('click', generateMap);
+            document.getElementById('clearBtn').addEventListener('click', () => {
+                if (confirm('Clear all data?')) location.reload();
+            });
+
+            document.getElementById('activitiesContainer').addEventListener('change', handleActivityChange);
+        }
+
+        function addActivity() {
+            activityCounter++;
+            const container = document.getElementById('activitiesContainer');
+            
+            const activity = {
+                id: activityCounter,
+                interaction: '',
+                alp: '',
+                time: '',
+                details: '',
+                tech: ''
+            };
+            activities.push(activity);
+
+            const div = document.createElement('div');
+            div.className = 'activity-item';
+            div.dataset.id = activityCounter;
+            div.innerHTML = `
+                <div class="activity-header">
+                    <div class="activity-number">${activityCounter}</div>
+                    <div style="flex: 1;">
+                        <div class="activity-fields">
+                            <div class="form-group" style="margin: 0;">
+                                <label>Interaction Type</label>
+                                <select data-id="${activityCounter}" data-field="interaction">
+                                    <option value="">Select type</option>
+                                    ${interactionTypes.map(t => `<option value="${t.value}">${t.label}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin: 0;">
+                                <label>Active Learning Process</label>
+                                <select data-id="${activityCounter}" data-field="alp">
+                                    <option value="">Select process</option>
+                                    ${alpStrategies.map(s => `<option value="${s.value}">${s.label}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin: 0;">
+                                <label>Time (mins)</label>
+                                <input type="number" data-id="${activityCounter}" data-field="time" placeholder="5">
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-top: 1rem; margin-bottom: 0;">
+                            <label>Activity Details</label>
+                            <textarea data-id="${activityCounter}" data-field="details" placeholder="Describe the activity..."></textarea>
+                        </div>
+                        <div class="form-group" style="margin-top: 1rem; margin-bottom: 0;">
+                            <label>Tech Tool (Optional)</label>
+                            <input type="text" data-id="${activityCounter}" data-field="tech" placeholder="e.g., Padlet, Google Docs">
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.appendChild(div);
+        }
+
+        function handleActivityChange(e) {
+            const id = parseInt(e.target.dataset.id);
+            const field = e.target.dataset.field;
+            const activity = activities.find(a => a.id === id);
+            if (activity) {
+                activity[field] = e.target.value;
+            }
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+            document.getElementById(tabName).classList.add('active');
+        }
+
+        function generateMap() {
+            const filled = activities.filter(a => a.interaction && a.alp && a.details);
+            
+            if (filled.length === 0) {
+                alert('Please fill in at least one activity with:\\n• Interaction Type\\n• Active Learning Process\\n• Activity Details');
+                return;
+            }
+
+            const topic = document.getElementById('topic').value || 'Lesson Design Map';
+            const level = document.getElementById('level').value;
+            const duration = document.getElementById('duration').value || 60;
+
+            renderMap(filled, topic, level, duration);
+            switchTab('output');
+        }
+
+        function renderMap(filledActivities, topic, level, duration) {
+            const container = document.getElementById('designMapContainer');
+            
+            // Calculate time totals per ALP
+            const alpTotals = {};
+            let totalTime = 0;
+            filledActivities.forEach(a => {
+                const time = parseInt(a.time) || 0;
+                totalTime += time;
+                alpTotals[a.alp] = (alpTotals[a.alp] || 0) + time;
+            });
+
+            // Group by interaction type
+            const grouped = {
+                community: [],
+                class: [],
+                group: [],
+                individual: []
+            };
+            
+            filledActivities.forEach(a => {
+                if (grouped[a.interaction]) {
+                    grouped[a.interaction].push(a);
+                }
+            });
+
+            let html = `
+                <div class="design-map-wrapper">
+                    <div style="margin-bottom: 2rem;">
+                        <h3 style="font-family: 'DM Serif Display', serif; font-size: 1.5rem; color: var(--primary);">${topic}</h3>
+                        <p style="color: var(--text-light); margin-top: 0.5rem;">
+                            ${level ? `Level: ${level} | ` : ''}Duration: ${duration} minutes
+                        </p>
+                    </div>
+                    
+                    <div style="position: relative;">
+                        <div class="axis-label y-axis">Social Plane</div>
+                        <div class="axis-label x-axis">Time →</div>
+                        
+                        <div class="design-map">
+            `;
+
+            const levels = [
+                { key: 'community', label: 'Community\\n(Student -\\nCommunity)' },
+                { key: 'class', label: 'Class\\n(Teacher -\\nStudent)' },
+                { key: 'group', label: 'Group\\n(Student -\\nStudent)' },
+                { key: 'individual', label: 'Individual\\n(Student -\\nContent)' }
+            ];
+
+            levels.forEach(level => {
+                const acts = grouped[level.key] || [];
+                
+                html += `
+                    <div class="social-level">
+                        <div class="social-label">${level.label.replace(/\\n/g, '<br>')}</div>
+                        <div class="activities-column">
+                `;
+
+                if (acts.length > 0) {
+                    acts.forEach((act, i) => {
+                        const alpLabel = alpStrategies.find(s => s.value === act.alp)?.label || act.alp;
+                        html += `
+                            <div>
+                                <div class="activity-box ${act.alp}">
+                                    ${act.time ? `<div class="activity-time-badge">${act.time}min</div>` : ''}
+                                    <div class="activity-title">Activity ${act.id}</div>
+                                    <div class="activity-details">${act.details}</div>
+                                    ${act.tech ? `<div class="activity-tech">[Tech tool]: ${act.tech}</div>` : ''}
+                                    <div class="provide-info">Provide Information</div>
+                                </div>
+                                ${i < acts.length - 1 ? '<div class="arrow-down"></div>' : ''}
+                            </div>
+                        `;
+                    });
+                } else {
+                    html += '<div style="color: #999; font-style: italic;">No activities</div>';
+                }
+
+                html += '</div></div>';
+            });
+
+            html += '</div></div>';
+
+            // Add legend
+            html += `
+                <div class="legend-table">
+                    <div class="legend-header">
+                        <span>Legend</span>
+                        <span>Mins, % total</span>
+                    </div>
+            `;
+
+            alpStrategies.forEach(alp => {
+                const time = alpTotals[alp.value] || 0;
+                const percent = totalTime > 0 ? Math.round((time / totalTime) * 100) : 0;
+                html += `
+                    <div class="legend-row">
+                        <div class="legend-color-box" style="background: ${alp.color};"></div>
+                        <div class="legend-text">${alp.label}</div>
+                        <div class="legend-time">${time} mins, ${percent}%</div>
+                    </div>
+                `;
+            });
+
+            html += `
+                    <div style="padding: 0.75rem; text-align: right; font-weight: 700; border-top: 2px solid #333;">
+                        ${totalTime}
+                    </div>
+                </div>
+            `;
+
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

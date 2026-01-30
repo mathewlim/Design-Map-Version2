@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Design Map Generator</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Karla:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="design.css">
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script defer src="script.js"></script>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <h1>Design Map Generator</h1>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="tabs">
+            <button class="tab active" data-tab="input">Input</button>
+            <button class="tab" data-tab="output">Design Map</button>
+            <button class="tab" data-tab="charts">Charts</button>
+        </div>
+
+        <!-- INPUT TAB -->
+        <div id="input" class="tab-content active">
+            <div class="section">
+                <h2 class="section-title">Overview</h2>
+                <div class="form-group">
+                    <label for="topic">Topic</label>
+                    <input type="text" id="topic" placeholder="Enter lesson topic">
+                </div>
+                <div class="form-group">
+                    <label for="level">Level</label>
+                    <input type="text" id="level" placeholder="e.g., Secondary 1">
+                </div>
+                <div class="form-group">
+                    <label for="studentProfile">Student profile</label>
+                    <input type="text" id="studentProfile" placeholder="e.g., Mixed ability, English language learners">
+                </div>
+                <div class="form-group">
+                    <label for="duration">Duration (minutes)</label>
+                    <input type="number" id="duration" value="60">
+                </div>
+                <div class="form-group">
+                    <label for="learningOutcomes">Learning outcomes</label>
+                    <textarea id="learningOutcomes" placeholder="List the intended outcomes..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="prerequisiteKnowledge">Prerequisite knowledge</label>
+                    <textarea id="prerequisiteKnowledge" placeholder="What should students already know?"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="learningIssues">Learning issue to be addressed</label>
+                    <textarea id="learningIssues" placeholder="Describe the learning issue..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="techIntegration">Level of technology integration</label>
+                    <select id="techIntegration">
+                        <option value="optional">Optional</option>
+                        <option value="replacement">Replacement</option>
+                        <option value="amplification">Amplification</option>
+                        <option value="transformation">Transformation</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">Learning Activities</h2>
+                <div id="activitiesContainer"></div>
+                <div class="activity-actions-bar">
+                    <button class="btn btn-add" id="addActivityBtn">
+                        <span class="btn-add-icon">+</span> Add Activity
+                    </button>
+                </div>
+            </div>
+
+            <p class="required-note required-note-top">* indicates a compulsory field.</p>
+            <div class="action-buttons">
+                <button class="btn btn-primary" id="generateBtn">Generate Design Map</button>
+                <button class="btn btn-ghost" id="clearBtn">Clear All</button>
+                <span class="inline-note">Your inputs are temporarily saved in this browser. Use “Clear All” to delete the saved data.</span>
+                <span class="save-indicator" id="saveIndicator" aria-live="polite">Saved</span>
+            </div>
+        </div>
+
+        <!-- OUTPUT TAB -->
+        <div id="output" class="tab-content">
+            <div class="section">
+                <div class="section-header section-header-right">
+                    <button class="btn btn-secondary" id="downloadJpgBtn">Download Design Map Image</button>
+                </div>
+                <div id="designMapContainer" class="print-root">
+                    <div class="empty-state">
+                        <div class="empty-icon">Map</div>
+                        <h3>No Design Map Yet</h3>
+                        <p>Fill in activities and click "Generate Design Map"</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CHARTS TAB -->
+        <div id="charts" class="tab-content">
+            <div class="section">
+                <div class="section-header">
+                    <h2 class="section-title">Charts</h2>
+                    <button class="btn btn-secondary" id="downloadChartsBtn">Download Charts</button>
+                </div>
+                <div id="chartsDownloadRoot">
+                    <div class="charts-grid">
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3>Active Learning Process</h3>
+                            <p>Time distribution (in minutes)</p>
+                        </div>
+                        <div class="chart-body">
+                            <div class="pie-chart alp-chart" data-chart="alp">
+                                <span class="pie-label" data-slice="activate"></span>
+                                <span class="pie-label" data-slice="promote"></span>
+                                <span class="pie-label" data-slice="facilitate"></span>
+                                <span class="pie-label" data-slice="monitor"></span>
+                            </div>
+                            <div class="chart-legend">
+                                <div class="chart-legend-item" data-key="activate">
+                                    <span class="legend-dot activate"></span>
+                                    <span class="legend-label">Activate learning</span>
+                                    <span class="legend-value"></span>
+                                </div>
+                                <div class="chart-legend-item" data-key="promote">
+                                    <span class="legend-dot promote"></span>
+                                    <span class="legend-label">Promote thinking and discussion</span>
+                                    <span class="legend-value"></span>
+                                </div>
+                                <div class="chart-legend-item" data-key="facilitate">
+                                    <span class="legend-dot facilitate"></span>
+                                    <span class="legend-label">Facilitate demonstration of learning</span>
+                                    <span class="legend-value"></span>
+                                </div>
+                                <div class="chart-legend-item" data-key="monitor">
+                                    <span class="legend-dot monitor"></span>
+                                    <span class="legend-label">Monitor and provide feedback</span>
+                                    <span class="legend-value"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3>Types of Interaction</h3>
+                            <p>Time distribution (in minutes)</p>
+                        </div>
+                        <div class="chart-body">
+                            <div class="pie-chart interaction-chart" data-chart="interaction">
+                                <span class="pie-label" data-slice="community"></span>
+                                <span class="pie-label" data-slice="class"></span>
+                                <span class="pie-label" data-slice="group"></span>
+                                <span class="pie-label" data-slice="individual"></span>
+                            </div>
+                            <div class="chart-legend">
+                                <div class="chart-legend-item" data-key="community">
+                                    <span class="legend-dot community"></span>
+                                    <span class="legend-label">Student - Community</span>
+                                    <span class="legend-value"></span>
+                                </div>
+                                <div class="chart-legend-item" data-key="class">
+                                    <span class="legend-dot class"></span>
+                                    <span class="legend-label">Teacher - Student</span>
+                                    <span class="legend-value"></span>
+                                </div>
+                                <div class="chart-legend-item" data-key="group">
+                                    <span class="legend-dot group"></span>
+                                    <span class="legend-label">Student - Student</span>
+                                    <span class="legend-value"></span>
+                                </div>
+                                <div class="chart-legend-item" data-key="individual">
+                                    <span class="legend-dot individual"></span>
+                                    <span class="legend-label">Student - Content</span>
+                                    <span class="legend-value"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3>Key Application of Technology</h3>
+                            <p>Time distribution (in minutes)</p>
+                        </div>
+                        <div class="chart-body">
+                            <div class="pie-chart keyapp-chart" data-chart="keyapp">
+                                <span class="pie-label" data-slice="support-assessment"></span>
+                                <span class="pie-label" data-slice="foster-conceptual"></span>
+                                <span class="pie-label" data-slice="provide-differentiation"></span>
+                                <span class="pie-label" data-slice="facilitate-learning-together"></span>
+                                <span class="pie-label" data-slice="develop-metacognition"></span>
+                                <span class="pie-label" data-slice="enable-personalisation"></span>
+                                <span class="pie-label" data-slice="embed-scaffolding"></span>
+                                <span class="pie-label" data-slice="increase-motivation"></span>
+                            </div>
+                            <div class="chart-legend">
+                                <div class="chart-legend-item" data-key="support-assessment">
+                                    <span class="legend-dot keyapp-support"></span>
+                                    <span class="legend-label">Support Assessment for Learning</span>
+                                    <span class="legend-value"></span>
+                                </div>
+                                <div class="chart-legend-item" data-key="foster-conceptual">
+                                    <span class="legend-dot keyapp-conceptual"></span>
+                                    <span class="legend-label">Foster Conceptual Change</span>
+                                    <span class="legend-value"></span>
+                                </div>
+                                <div class="chart-legend-item" data-key="provide-differentiation">
+                                    <span class="legend-dot keyapp-differentiation"></span>
+                                    <span class="legend-label">Provide Differentiation</span>
+                                    <span class="legend-value"></span>
+                                </div>
+                                <div class="chart-legend-item" data-key="facilitate-learning-together">
+                                    <span class="legend-dot keyapp-together"></span>
+                                    <span class="legend-label">Facilitate Learning Together</span>
+                                    <span class="legend-value"></span>
+                                </div>
+                                <div class="chart-legend-item" data-key="develop-metacognition">
+                                    <span class="legend-dot keyapp-metacognition"></span>
+                                    <span class="legend-label">Develop Metacognition</span>
+                                    <span class="legend-value"></span>
+                                </div>
+                                <div class="chart-legend-item" data-key="enable-personalisation">
+                                    <span class="legend-dot keyapp-personalisation"></span>
+                                    <span class="legend-label">Enable Personalisation</span>
+                                    <span class="legend-value"></span>
+                                </div>
+                                <div class="chart-legend-item" data-key="embed-scaffolding">
+                                    <span class="legend-dot keyapp-scaffolding"></span>
+                                    <span class="legend-label">Embed Scaffolding</span>
+                                    <span class="legend-value"></span>
+                                </div>
+                                <div class="chart-legend-item" data-key="increase-motivation">
+                                    <span class="legend-dot keyapp-motivation"></span>
+                                    <span class="legend-label">Increase Motivation</span>
+                                    <span class="legend-value"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chart-footnote">
+                    <p>Footnote:</p>
+                    <ol>
+                        <li>Charts are for teacher to reflect on their created lesson plan and design lesson.</li>
+                        <li>Time allocated for the different types of activity and types of interaction are to support teachers in reflecting if the activity design is adequate for the learning outcome.</li>
+                        <li>There is no specific ratio for the time spends and types of interaction.</li>
+                    </ol>
+                </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
