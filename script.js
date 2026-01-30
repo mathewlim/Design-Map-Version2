@@ -701,8 +701,8 @@ function handleChartsDownload() {
         const cleanup = preparePieChartsForDownload(target);
         html2canvas(target, { backgroundColor: '#ffffff', scale: 2 }).then(canvas => {
             const link = document.createElement('a');
-            link.href = canvas.toDataURL('image/jpeg', 0.95);
-            link.download = 'design-map-charts.jpg';
+            link.href = canvas.toDataURL('image/png');
+            link.download = 'design-map-charts.png';
             link.click();
             cleanup();
             if (activeTab) {
