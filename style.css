@@ -384,6 +384,63 @@ textarea {
     color: var(--text-light);
 }
 
+.markdown-panel {
+    margin-top: 1rem;
+    border: 1px solid var(--border);
+    background: #f8fbff;
+    border-radius: 14px;
+    padding: 1rem;
+}
+
+.instruction-text {
+    font-size: 1rem;
+    color: var(--text);
+    margin-bottom: 0.65rem;
+}
+
+.instruction-link {
+    color: var(--primary);
+    font-weight: 600;
+    text-decoration: underline;
+}
+
+.instruction-link:hover {
+    color: var(--secondary);
+}
+
+.markdown-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.markdown-label {
+    font-weight: 600;
+    color: var(--text);
+}
+
+.markdown-box {
+    min-height: 260px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    background: #f1f5f9;
+    border: 1px solid #cbd5f5;
+}
+
+.copy-status {
+    font-size: 0.85rem;
+    color: var(--text-light);
+    min-height: 1em;
+}
+
+.copy-status.visible {
+    color: #0f766e;
+    font-weight: 600;
+}
+
 .required-note {
     margin-top: 0.5rem;
     font-size: 0.85rem;

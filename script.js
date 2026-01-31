@@ -64,6 +64,10 @@ function setupEventListeners() {
     });
     document.getElementById('downloadJpgBtn').addEventListener('click', handleJpgDownload);
     document.getElementById('downloadChartsBtn').addEventListener('click', handleChartsDownload);
+    const copyBtn = document.getElementById('copyPromptBtn');
+    if (copyBtn) {
+        copyBtn.addEventListener('click', copyPromptToClipboard);
+    }
 
     const container = document.getElementById('activitiesContainer');
     container.addEventListener('change', handleActivityChange);
@@ -150,6 +154,7 @@ function addActivity(activityData = {}) {
         }
     });
     updateCharCounters(div);
+    updateLccPrompt();
 }
 
 function handleActivityChange(e) {
@@ -249,6 +254,7 @@ function saveState() {
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         showSaveIndicator();
+        updateLccPrompt();
     } catch (err) {
         console.warn('Unable to save design map state', err);
     }
@@ -278,6 +284,7 @@ function loadState() {
         state.activities.forEach(activity => {
             addActivity(activity);
         });
+        updateLccPrompt();
 
         return true;
     } catch (err) {
@@ -319,6 +326,9 @@ function switchTab(tabName) {
     const activeContent = document.getElementById(tabName);
     if (activeTab) activeTab.classList.add('active');
     if (activeContent) activeContent.classList.add('active');
+    if (tabName === 'lcc') {
+        updateLccPrompt();
+    }
 }
 
 function generateMap() {
@@ -637,6 +647,125 @@ function formatKeyAppLabel(label) {
     const line1 = words.slice(0, mid).join(' ');
     const line2 = words.slice(mid).join(' ');
     return `${line1}<br>${line2}`;
+}
+
+function updateLccPrompt() {
+    const box = document.getElementById('promptMarkdown');
+    if (!box) return;
+    box.value = buildPromptMarkdown();
+}
+
+function buildPromptMarkdown() {
+    const topic = document.getElementById('topic')?.value || '';
+    const level = document.getElementById('level')?.value || '';
+    const studentProfile = document.getElementById('studentProfile')?.value || '';
+    const durationRaw = document.getElementById('duration')?.value || '';
+    const learningOutcomes = document.getElementById('learningOutcomes')?.value || '';
+    const prerequisiteKnowledge = document.getElementById('prerequisiteKnowledge')?.value || '';
+    const learningIssues = document.getElementById('learningIssues')?.value || '';
+    const techIntegration = document.getElementById('techIntegration')?.value || '';
+
+    const lines = [];
+    lines.push('Create lesson plan with the following information:');
+    lines.push('');
+    lines.push(`- Topic: ${formatPromptValue(topic)}`);
+    lines.push(`- Level: ${formatPromptValue(level)}`);
+    lines.push(`- Student profile: ${formatPromptValue(studentProfile)}`);
+    lines.push(`- Duration: ${formatPromptDuration(durationRaw)}`);
+    lines.push(`- Learning outcomes: ${formatPromptValue(learningOutcomes)}`);
+    lines.push(`- Prerequisite knowledge: ${formatPromptValue(prerequisiteKnowledge)}`);
+    lines.push(`- Learning issue to be addressed: ${formatPromptValue(learningIssues)}`);
+    lines.push(`- Level of technology integration: ${formatPromptTechIntegration(techIntegration)}`);
+
+    if (activities.length) {
+        lines.push('- Learning activities:');
+        activities.forEach((activity, index) => {
+            lines.push(`  ${index + 1}. Activity ${index + 1}`);
+            lines.push(`     - Interaction type: ${formatPromptValue(getInteractionLabel(activity.interaction))}`);
+            lines.push(`     - Active learning process: ${formatPromptValue(getAlpLabel(activity.alp))}`);
+            lines.push(`     - Time: ${formatPromptDuration(activity.time)}`);
+            lines.push(`     - Activity details: ${formatPromptValue(activity.details)}`);
+            lines.push(`     - Key application of technology: ${formatPromptValue(getKeyAppLabel(activity.keyApp))}`);
+            lines.push(`     - Tech tool: ${formatPromptValue(activity.tech)}`);
+        });
+    } else {
+        lines.push('- Learning activities: Not specified');
+    }
+
+    return lines.join('\n');
+}
+
+function formatPromptValue(value) {
+    const trimmed = String(value || '').trim();
+    return trimmed ? trimmed : 'Not specified';
+}
+
+function formatPromptDuration(value) {
+    const trimmed = String(value || '').trim();
+    return trimmed ? `${trimmed} minutes` : 'Not specified';
+}
+
+function formatPromptTechIntegration(value) {
+    const trimmed = String(value || '').trim();
+    if (!trimmed) return 'Not specified';
+    if (trimmed === 'optional') return 'Optional';
+    return formatTechIntegration(trimmed);
+}
+
+function getInteractionLabel(value) {
+    if (!value) return '';
+    return interactionTypes.find(item => item.value === value)?.label || value;
+}
+
+function getAlpLabel(value) {
+    if (!value) return '';
+    return alpStrategies.find(item => item.value === value)?.label || value;
+}
+
+function getKeyAppLabel(value) {
+    if (!value) return '';
+    return keyApplications.find(item => item.value === value)?.label || value;
+}
+
+function copyPromptToClipboard() {
+    const box = document.getElementById('promptMarkdown');
+    if (!box) return;
+    const text = box.value || '';
+    const onSuccess = () => showCopyStatus('Copied to clipboard.', true);
+    const onFailure = () => showCopyStatus('Unable to copy. Please select and copy manually.', false);
+
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(onSuccess).catch(onFailure);
+        return;
+    }
+
+    const wasReadonly = box.hasAttribute('readonly');
+    if (wasReadonly) box.removeAttribute('readonly');
+    box.focus();
+    box.select();
+    try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+            onSuccess();
+        } else {
+            onFailure();
+        }
+    } catch (err) {
+        onFailure();
+    }
+    if (wasReadonly) box.setAttribute('readonly', '');
+    window.getSelection()?.removeAllRanges();
+}
+
+function showCopyStatus(message, success) {
+    const status = document.getElementById('copyStatus');
+    if (!status) return;
+    status.textContent = message;
+    status.classList.toggle('visible', Boolean(success));
+    setTimeout(() => {
+        status.textContent = '';
+        status.classList.remove('visible');
+    }, 2400);
 }
 
 function handleJpgDownload() {

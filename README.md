@@ -1,12 +1,13 @@
-ï»¿# Design Map Generator
+# Design Map Generator
 
-A browser-based tool for creating lesson design maps and reflection charts for technology-enabled lessons.
+A browser-based tool for creating lesson design maps, reflection charts, and lesson-plan prompts for technology-enabled lessons.
 
 ## What this tool does
 
 - Builds a structured lesson design map from activity inputs.
 - Visualizes time distribution across Active Learning Process, Interaction Types, and Key Application of Technology.
 - Exports the design map and charts as images for sharing or documentation.
+- Generates a ready-to-copy lesson-plan prompt for the Lesson Collaborator (LCC) on AIBots.
 - Saves inputs locally in the browser for temporary recovery.
 
 ## Core features
@@ -53,8 +54,13 @@ A browser-based tool for creating lesson design maps and reflection charts for t
 
 ### Export
 
-- Download Design Map Image (PNG) â€” captures the full map, even with many activities.
-- Download Charts (JPG) â€” optimized for clear color rendering.
+- Download Design Map Image (PNG) — captures the full map, even with many activities.
+- Download Charts (PNG) — optimized for clear color rendering.
+
+### Lesson plan prompt generator (LCC)
+
+- A dedicated tab assembles a markdown prompt from all inputs and activities.
+- Click "Copy prompt" to paste into the Lesson Collaborator (LCC) on AIBots to generate a complete lesson plan.
 
 ### Autosave (temporary)
 
@@ -67,11 +73,12 @@ A browser-based tool for creating lesson design maps and reflection charts for t
 2. Add activities and fill in required fields.
 3. Generate the Design Map.
 4. Review reflection charts.
-5. Export images for sharing or documentation.
+5. Open the Lesson Plan Prompt Generator (using LCC) tab and copy the prompt.
+6. Export images for sharing or documentation.
 
 ## Tip: Use with a lesson-planning chatbot
 
-After generating the Design Map image, you can upload it to a lesson-planning chatbot (e.g., a **Lesson Collaborator Chatbot**) to:
+After generating the Design Map image, you can upload it to a lesson-planning chatbot (e.g., the Lesson Collaborator on AIBots) to:
 
 - Summarize the lesson flow.
 - Suggest refinements for pacing and interaction balance.

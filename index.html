@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Design Map Generator</title>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Karla:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Serif+Display&family=Karla:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="design.css">
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
@@ -22,6 +22,7 @@
             <button class="tab active" data-tab="input">Input</button>
             <button class="tab" data-tab="output">Design Map</button>
             <button class="tab" data-tab="charts">Charts</button>
+            <button class="tab" data-tab="lcc">Lesson Plan Prompt Generator (using LCC)</button>
         </div>
 
         <!-- INPUT TAB -->
@@ -254,6 +255,29 @@
                         <li>There is no specific ratio for the time spends and types of interaction.</li>
                     </ol>
                 </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- LCC PROMPT TAB -->
+        <div id="lcc" class="tab-content">
+            <div class="section">
+                <div class="section-header">
+                    <h2 class="section-title">Lesson Plan Prompt Generator (using Lesson Collaborator Chatbot)</h2>
+                </div>
+                <p class="instruction-text">
+                    Copy the entire prompt below and paste it into the Lesson Collaborator (LCC) on AIBots
+                    (<a class="instruction-link" href="https://go.gov.sg/lcc-aibots" target="_blank" rel="noopener noreferrer">https://go.gov.sg/lcc-aibots</a>)
+                    to generate a complete lesson plan.
+                </p>
+                <p class="instruction-text">The markdown box captures all inputs from the earlier sections.</p>
+                <div class="markdown-panel">
+                    <div class="markdown-toolbar">
+                        <span class="markdown-label">Markdown prompt</span>
+                        <button class="btn btn-secondary" id="copyPromptBtn" type="button">Copy prompt</button>
+                        <span class="copy-status" id="copyStatus" aria-live="polite"></span>
+                    </div>
+                    <textarea id="promptMarkdown" class="markdown-box" readonly></textarea>
                 </div>
             </div>
         </div>
