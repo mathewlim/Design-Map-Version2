@@ -4,6 +4,7 @@
     border-radius: 16px;
     padding: 2rem;
     box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+    width: 100%;
 }
 
 .design-map {
@@ -15,8 +16,8 @@
     border-bottom: 3px solid #333;
     margin-top: 2rem;
     min-height: 500px;
-    --slot-width: 300px;
-    --row-height: 150px;
+    --slot-width: 360px;
+    --row-height: 170px;
 }
 
 .social-level {
@@ -52,6 +53,12 @@
     background-position: 0 var(--row-height);
 }
 
+.activities-grid.fill-width {
+    grid-template-columns: repeat(var(--activity-count, 1), minmax(0, 1fr));
+    width: 100%;
+    overflow-x: hidden;
+}
+
 .activity-slot {
     display: flex;
     align-items: stretch;
@@ -72,6 +79,11 @@
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     height: 100%;
     z-index: 2;
+    cursor: grab;
+}
+
+.activity-box.dragging {
+    cursor: grabbing;
 }
 
 .activity-box {
@@ -242,5 +254,5 @@
 
 @media (max-width: 768px) {
     .design-map { grid-template-columns: 100px 1fr; }
-    .activities-grid { --slot-width: 200px; }
+    .activities-grid { --slot-width: 240px; }
 }

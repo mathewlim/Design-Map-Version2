@@ -64,6 +64,14 @@ h1 {
     padding: 1.5rem 2rem 2rem;
 }
 
+body.output-open .container {
+    max-width: 100%;
+}
+
+body.output-open #output .section {
+    width: 100%;
+}
+
 .tabs {
     display: flex;
     gap: 0.5rem;
@@ -79,9 +87,69 @@ h1 {
     margin-bottom: 1rem;
 }
 
+.section-header-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
 .section-header-right {
     justify-content: flex-end;
     margin-bottom: 0.5rem;
+}
+
+.output-editor {
+    background: var(--card-bg);
+    border-radius: 16px;
+    padding: 1.25rem;
+    border: 1px solid var(--border);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    position: fixed;
+    top: 90px;
+    right: 1.5rem;
+    width: 320px;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+    display: block;
+    transform: translateX(120%);
+    transition: transform 0.3s ease;
+    z-index: 20;
+}
+
+.output-editor.active {
+    transform: translateX(0);
+}
+
+.output-editor-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    gap: 0.75rem;
+}
+
+.output-editor-header h3 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.3rem;
+    color: var(--primary);
+}
+
+.output-editor-close {
+    padding: 0.4rem 0.9rem;
+    font-size: 0.85rem;
+}
+
+.output-editor-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+@media (max-width: 1100px) {
+    .output-editor {
+        right: 1rem;
+        width: 280px;
+    }
 }
 
 .tab {
@@ -430,6 +498,18 @@ textarea {
     border: 1px solid #cbd5f5;
 }
 
+.markdown-sample {
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    color: #0f172a;
+}
+
 .copy-status {
     font-size: 0.85rem;
     color: var(--text-light);
@@ -450,6 +530,22 @@ textarea {
 .required-note-top {
     margin-top: 0.5rem;
     margin-bottom: 0.25rem;
+}
+
+.validation-warning {
+    display: none;
+    margin-bottom: 0.75rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: 10px;
+    border: 1px solid #f0a3a8;
+    background: #fff1f2;
+    color: #9f1d2f;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.validation-warning.visible {
+    display: block;
 }
 
 .required {

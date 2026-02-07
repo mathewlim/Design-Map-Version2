@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="design.css">
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.11.0/dist/pptxgen.bundle.js"></script>
     <script defer src="script.js"></script>
 </head>
 <body>
@@ -20,6 +21,7 @@
     <div class="container">
         <div class="tabs">
             <button class="tab active" data-tab="input">Input</button>
+            <button class="tab" data-tab="markdown">Markdown Input (with LCC's assistance)</button>
             <button class="tab" data-tab="output">Design Map</button>
             <button class="tab" data-tab="charts">Charts</button>
             <button class="tab" data-tab="lcc">Lesson Plan Prompt Generator (using LCC)</button>
@@ -69,7 +71,8 @@
             </div>
 
             <div class="section">
-                <h2 class="section-title">Learning Activities</h2>
+                <h2 class="section-title">Learning Activities <span class="inline-note">Note: For PPTX download, please do not exceed 6 activities.</span></h2>
+                <div class="validation-warning" id="inputWarning" aria-live="polite"></div>
                 <div id="activitiesContainer"></div>
                 <div class="activity-actions-bar">
                     <button class="btn btn-add" id="addActivityBtn">
@@ -87,12 +90,123 @@
             </div>
         </div>
 
+        <!-- MARKDOWN INPUT TAB -->
+        <div id="markdown" class="tab-content">
+            <div class="section">
+                <div class="section-header">
+                    <h2 class="section-title">Markdown Input (with LCC's assistance)</h2>
+                    <div class="section-header-actions">
+                        <button class="btn btn-secondary" id="pasteMarkdownSampleBtn" type="button">Paste Sample Format</button>
+                        <button class="btn btn-primary" id="applyMarkdownBtn" type="button">Apply Markdown</button>
+                    </div>
+                </div>
+                <p class="instruction-text">Markdown will only be captured if it follows the format shown below.</p>
+                <textarea id="markdownInput" class="markdown-box" placeholder="Paste your markdown here..."></textarea>
+            </div>
+            <div class="section">
+                <h2 class="section-title">Notes</h2>
+                <pre class="markdown-sample">Important:
+- The chatbot/LLM must type the field names and dropdown values exactly as shown.
+- The markdown will only be captured if the format is followed.</pre>
+            </div>
+            <div class="section">
+                <div class="section-header">
+                    <h2 class="section-title">Sample Prompt For LLM</h2>
+                    <button class="btn btn-secondary" id="copyMarkdownPromptBtn" type="button">Copy Prompt</button>
+                </div>
+                <pre class="markdown-sample" id="markdownPromptSample">Context: This is to help generate a Design Map for a lesson plan using the Design Map Generator. 
+Please follow the instructions carefully.
+
+You are given the following markdown template. Fill in every field value, and keep ALL field names exactly as written. 
+There can be more than 2 activities. Ask the user how many activities to include, then collect and confirm the details for each activity before you finalize the markdown.
+Once the fields are confirmed, output the completed markdown exactly in the format shown.
+For dropdown fields, use one of the allowed values shown below. Return only the completed markdown in the same format.
+Strict rules:
+- Return ONLY the markdown. No extra text, no explanations.
+- Do not rename any field or heading.
+- Keep the same order and spacing.
+- Do not add bullets or additional sections.
+
+Character limits:
+- Learning outcomes: ≤ 250 characters
+- Prerequisite knowledge: ≤ 250 characters
+- Learning issue to be addressed: ≤ 250 characters
+- Activity Details: ≤ 115 characters
+- Tech Tool: ≤ 25 characters
+
+Allowed dropdown values:
+- Level of technology integration: Optional | Replacement | Amplification | Transformation
+- Interaction Type: Community (Student - Community) | Class (Teacher - Student) | Group (Student - Student) | Individual (Student - Content)
+- Active Learning Process: Activate Learning | Promote thinking and discussion | Facilitate Demonstration of Learning | Monitor and Provide Feedback
+- Key Application of Technology: Support Assessment for Learning | Foster Conceptual Change | Provide Differentiation | Facilitate Learning Together | Develop Metacognition | Enable Personalisation | Embed Scaffolding | Increase Motivation
+
+Markdown template to fill:
+
+# Lesson Overview
+Topic:
+Level:
+Student profile:
+Duration (minutes):
+Learning outcomes:
+Prerequisite knowledge:
+Learning issue to be addressed:
+Level of technology integration:
+
+# Activities
+
+## Activity 1
+Interaction Type:
+Active Learning Process:
+Time (mins):
+Activity Details:
+Key Application of Technology:
+Tech Tool:
+
+## Activity 2
+Interaction Type:
+Active Learning Process:
+Time (mins):
+Activity Details:
+Key Application of Technology:
+Tech Tool:</pre>
+            </div>
+            <pre class="markdown-sample" id="markdownSampleTemplate" style="display:none;"># Lesson Overview
+Topic:
+Level:
+Student profile:
+Duration (minutes):
+Learning outcomes:
+Prerequisite knowledge:
+Learning issue to be addressed:
+Level of technology integration:
+
+# Activities
+
+## Activity 1
+Interaction Type:
+Active Learning Process:
+Time (mins):
+Activity Details:
+Key Application of Technology:
+Tech Tool:
+
+## Activity 2
+Interaction Type:
+Active Learning Process:
+Time (mins):
+Activity Details:
+Key Application of Technology:
+Tech Tool:</pre>
+        </div>
+
         <!-- OUTPUT TAB -->
         <div id="output" class="tab-content">
             <div class="section">
                 <div class="section-header section-header-right">
                     <button class="btn btn-secondary" id="downloadJpgBtn">Download Design Map Image</button>
+                    <button class="btn btn-secondary" id="downloadPptxBtn" title="Don't exceed 6 activities for PPTX download.">Download Design Map (Editable PPTX)</button>
                 </div>
+                <div class="validation-warning" id="outputWarning" aria-live="polite"></div>
                 <div id="designMapContainer" class="print-root">
                     <div class="empty-state">
                         <div class="empty-icon">Map</div>
@@ -101,6 +215,40 @@
                     </div>
                 </div>
             </div>
+            <aside class="output-editor" id="outputEditor" aria-hidden="true">
+                <div class="output-editor-header">
+                    <h3>Edit Activity <span id="outputEditorTitle"></span></h3>
+                    <button class="btn btn-ghost output-editor-close" id="outputEditorClose" type="button">Close</button>
+                </div>
+                <div class="form-group">
+                    <label>Interaction Type <span class="required" title="Compulsory field">*</span></label>
+                    <select id="editorInteraction"></select>
+                </div>
+                <div class="form-group">
+                    <label>Active Learning Process <span class="required" title="Compulsory field">*</span></label>
+                    <select id="editorAlp"></select>
+                </div>
+                <div class="form-group">
+                    <label>Time (mins)</label>
+                    <input type="number" id="editorTime" min="0">
+                </div>
+                <div class="form-group">
+                    <label>Activity Details <span class="required" title="Compulsory field">*</span></label>
+                    <textarea id="editorDetails" maxlength="115"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Key Application of Technology</label>
+                    <select id="editorKeyApp"></select>
+                </div>
+                <div class="form-group">
+                    <label>Tech Tool</label>
+                    <input type="text" id="editorTech" maxlength="25">
+                </div>
+                <div class="output-editor-actions">
+                    <button class="btn btn-secondary" id="outputEditorAdd" type="button">Add Activity</button>
+                    <button class="btn btn-danger" id="outputEditorDelete" type="button">Delete Activity</button>
+                </div>
+            </aside>
         </div>
 
         <!-- CHARTS TAB -->

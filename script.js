@@ -2,6 +2,8 @@ let activities = [];
 let activityCounter = 0;
 const STORAGE_KEY = 'design-map-state-v1';
 let saveIndicatorTimer = null;
+let selectedActivityId = null;
+let outputEditorAddMode = false;
 
 const interactionTypes = [
     { value: 'community', label: 'Community (Student - Community)' },
@@ -45,6 +47,8 @@ function init() {
         addActivity();
     }
     setupEventListeners();
+    initOutputEditor();
+    updateValidationWarnings();
 }
 
 function setupEventListeners() {
@@ -63,7 +67,23 @@ function setupEventListeners() {
         }
     });
     document.getElementById('downloadJpgBtn').addEventListener('click', handleJpgDownload);
+    const pptxBtn = document.getElementById('downloadPptxBtn');
+    if (pptxBtn) {
+        pptxBtn.addEventListener('click', handlePptxDownload);
+    }
     document.getElementById('downloadChartsBtn').addEventListener('click', handleChartsDownload);
+    const applyMarkdownBtn = document.getElementById('applyMarkdownBtn');
+    if (applyMarkdownBtn) {
+        applyMarkdownBtn.addEventListener('click', applyMarkdownInput);
+    }
+    const pasteSampleBtn = document.getElementById('pasteMarkdownSampleBtn');
+    if (pasteSampleBtn) {
+        pasteSampleBtn.addEventListener('click', pasteMarkdownSample);
+    }
+    const copyPromptBtn = document.getElementById('copyMarkdownPromptBtn');
+    if (copyPromptBtn) {
+        copyPromptBtn.addEventListener('click', copyMarkdownPrompt);
+    }
     const copyBtn = document.getElementById('copyPromptBtn');
     if (copyBtn) {
         copyBtn.addEventListener('click', copyPromptToClipboard);
@@ -77,6 +97,257 @@ function setupEventListeners() {
     document.querySelectorAll('#input input, #input textarea, #input select').forEach(el => {
         el.addEventListener('input', saveState);
         el.addEventListener('change', saveState);
+    });
+}
+
+function copyMarkdownPrompt() {
+    const sample = document.getElementById('markdownPromptSample');
+    if (!sample) return;
+    const text = sample.textContent || '';
+    if (!text.trim()) return;
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).catch(() => {});
+        return;
+    }
+    const temp = document.createElement('textarea');
+    temp.value = text;
+    document.body.appendChild(temp);
+    temp.select();
+    try {
+        document.execCommand('copy');
+    } catch (err) {}
+    document.body.removeChild(temp);
+}
+
+function pasteMarkdownSample() {
+    const target = document.getElementById('markdownInput');
+    const sample = document.getElementById('markdownSampleTemplate');
+    if (!target || !sample) return;
+    target.value = sample.textContent || '';
+    target.focus();
+}
+
+function applyMarkdownInput() {
+    const input = document.getElementById('markdownInput');
+    if (!input) return;
+    const parsed = parseMarkdown(input.value || '');
+    if (!parsed) return;
+
+    const meta = parsed.meta;
+    if (meta.topic !== undefined) document.getElementById('topic').value = meta.topic;
+    if (meta.level !== undefined) document.getElementById('level').value = meta.level;
+    if (meta.studentProfile !== undefined) document.getElementById('studentProfile').value = meta.studentProfile;
+    if (meta.duration !== undefined) document.getElementById('duration').value = meta.duration;
+    if (meta.learningOutcomes !== undefined) document.getElementById('learningOutcomes').value = meta.learningOutcomes;
+    if (meta.prerequisiteKnowledge !== undefined) document.getElementById('prerequisiteKnowledge').value = meta.prerequisiteKnowledge;
+    if (meta.learningIssues !== undefined) document.getElementById('learningIssues').value = meta.learningIssues;
+    if (meta.techIntegration !== undefined) document.getElementById('techIntegration').value = meta.techIntegration;
+
+    const container = document.getElementById('activitiesContainer');
+    if (container) container.innerHTML = '';
+    activities = [];
+    activityCounter = 0;
+
+    parsed.activities.forEach(activity => addActivity(activity));
+    saveState();
+    updateValidationWarnings();
+    switchTab('input');
+}
+
+function parseMarkdown(text) {
+    const lines = (text || '').split(/\r?\n/);
+    const meta = {};
+    const activitiesParsed = [];
+    let currentActivity = null;
+    let currentField = '';
+    let currentMetaField = '';
+
+    const pushActivity = () => {
+        if (currentActivity) {
+            activitiesParsed.push(currentActivity);
+            currentActivity = null;
+            currentField = '';
+        }
+    };
+
+    lines.forEach(rawLine => {
+        const line = rawLine.trim();
+        if (!line) return;
+        if (line.startsWith('//')) return;
+        if (line.startsWith('#')) {
+            if (/^##\s*Activity/i.test(line)) {
+                pushActivity();
+                currentActivity = {
+                    interaction: '',
+                    alp: '',
+                    keyApp: '',
+                    time: '5',
+                    details: '',
+                    tech: ''
+                };
+            }
+            return;
+        }
+
+        const cleanedLine = line.replace(/^-\s+/, '');
+        const colonIndex = cleanedLine.indexOf(':');
+        if (colonIndex === -1) {
+            if (currentActivity && currentField === 'details') {
+                currentActivity.details = `${currentActivity.details} ${line}`.trim();
+            } else if (currentMetaField) {
+                meta[currentMetaField] = `${meta[currentMetaField] || ''} ${line}`.trim();
+            }
+            return;
+        }
+
+        const key = cleanedLine.slice(0, colonIndex).trim().toLowerCase();
+        let value = cleanedLine.slice(colonIndex + 1).trim();
+        value = value.split(' //')[0].trim();
+        currentMetaField = '';
+
+        if (currentActivity) {
+            switch (key) {
+                case 'interaction type':
+                    currentActivity.interaction = mapInteractionValue(value);
+                    currentField = '';
+                    break;
+                case 'active learning process':
+                    currentActivity.alp = mapAlpValue(value);
+                    currentField = '';
+                    break;
+                case 'time (mins)':
+                case 'time':
+                    currentActivity.time = value;
+                    currentField = '';
+                    break;
+                case 'activity details':
+                    currentActivity.details = value;
+                    currentField = 'details';
+                    break;
+                case 'key application of technology':
+                    currentActivity.keyApp = mapKeyAppValue(value);
+                    currentField = '';
+                    break;
+                case 'tech tool':
+                    currentActivity.tech = value;
+                    currentField = '';
+                    break;
+                default:
+                    if (currentField === 'details' && value) {
+                        currentActivity.details = `${currentActivity.details} ${value}`.trim();
+                    }
+                    break;
+            }
+            return;
+        }
+
+        switch (key) {
+            case 'topic':
+                meta.topic = value;
+                break;
+            case 'level':
+                meta.level = value;
+                break;
+            case 'student profile':
+                meta.studentProfile = value;
+                break;
+            case 'duration (minutes)':
+            case 'duration':
+                meta.duration = value;
+                break;
+            case 'learning outcomes':
+                meta.learningOutcomes = value;
+                currentMetaField = 'learningOutcomes';
+                break;
+            case 'prerequisite knowledge':
+                meta.prerequisiteKnowledge = value;
+                currentMetaField = 'prerequisiteKnowledge';
+                break;
+            case 'learning issue to be addressed':
+                meta.learningIssues = value;
+                currentMetaField = 'learningIssues';
+                break;
+            case 'level of technology integration':
+                meta.techIntegration = mapTechIntegration(value);
+                break;
+            default:
+                break;
+        }
+    });
+
+    pushActivity();
+    return { meta, activities: activitiesParsed };
+}
+
+function mapInteractionValue(value) {
+    const cleaned = (value || '').trim();
+    if (!cleaned) return '';
+    const lower = cleaned.toLowerCase();
+    const direct = interactionTypes.find(t => t.value === lower);
+    if (direct) return direct.value;
+    const label = interactionTypes.find(t => t.label.toLowerCase() === lower);
+    return label ? label.value : '';
+}
+
+function mapAlpValue(value) {
+    const cleaned = (value || '').trim();
+    if (!cleaned) return '';
+    const lower = cleaned.toLowerCase();
+    const direct = alpStrategies.find(a => a.value === lower);
+    if (direct) return direct.value;
+    const label = alpStrategies.find(a => a.label.toLowerCase() === lower);
+    return label ? label.value : '';
+}
+
+function mapKeyAppValue(value) {
+    const cleaned = (value || '').trim();
+    if (!cleaned) return '';
+    const lower = cleaned.toLowerCase();
+    const direct = keyApplications.find(k => k.value === lower);
+    if (direct) return direct.value;
+    const label = keyApplications.find(k => k.label.toLowerCase() === lower);
+    return label ? label.value : '';
+}
+
+function mapTechIntegration(value) {
+    const cleaned = (value || '').trim().toLowerCase();
+    if (!cleaned) return 'optional';
+    if (['optional', 'replacement', 'amplification', 'transformation'].includes(cleaned)) {
+        return cleaned;
+    }
+    return 'optional';
+}
+
+function initOutputEditor() {
+    const editor = document.getElementById('outputEditor');
+    if (!editor) return;
+
+    const interactionSelect = document.getElementById('editorInteraction');
+    const alpSelect = document.getElementById('editorAlp');
+    const keyAppSelect = document.getElementById('editorKeyApp');
+
+    interactionSelect.innerHTML = `<option value="">Select type</option>${interactionTypes
+        .map(t => `<option value="${t.value}">${t.label}</option>`)
+        .join('')}`;
+    alpSelect.innerHTML = `<option value="">Select process</option>${alpStrategies
+        .map(a => `<option value="${a.value}">${a.label}</option>`)
+        .join('')}`;
+    keyAppSelect.innerHTML = `<option value="">Select category</option>${keyApplications
+        .map(k => `<option value="${k.value}">${k.label}</option>`)
+        .join('')}`;
+
+    const closeBtn = document.getElementById('outputEditorClose');
+    closeBtn?.addEventListener('click', closeOutputEditor);
+    const addBtn = document.getElementById('outputEditorAdd');
+    addBtn?.addEventListener('click', handleEditorAddActivity);
+    const deleteBtn = document.getElementById('outputEditorDelete');
+    deleteBtn?.addEventListener('click', handleEditorDeleteActivity);
+
+    ['editorInteraction', 'editorAlp', 'editorTime', 'editorDetails', 'editorKeyApp', 'editorTech'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('input', handleEditorChange);
+        el.addEventListener('change', handleEditorChange);
     });
 }
 
@@ -255,6 +526,7 @@ function saveState() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         showSaveIndicator();
         updateLccPrompt();
+        updateValidationWarnings();
     } catch (err) {
         console.warn('Unable to save design map state', err);
     }
@@ -326,40 +598,63 @@ function switchTab(tabName) {
     const activeContent = document.getElementById(tabName);
     if (activeTab) activeTab.classList.add('active');
     if (activeContent) activeContent.classList.add('active');
+    document.body.classList.toggle('output-open', tabName === 'output');
     if (tabName === 'lcc') {
         updateLccPrompt();
     }
 }
 
 function generateMap() {
-    const filled = activities.filter(a => a.interaction && a.alp && a.details);
+    syncActivitiesFromDom();
+    const filled = getFilledActivities();
 
     if (filled.length === 0) {
         alert('Please fill in at least one activity with:\n- Interaction Type\n- Active Learning Process\n- Activity Details');
         return;
     }
 
-    const topic = document.getElementById('topic').value || 'Lesson Design Map';
-    const level = document.getElementById('level').value;
-    const duration = document.getElementById('duration').value || 60;
-    const studentProfile = document.getElementById('studentProfile')?.value;
-    const learningOutcomes = document.getElementById('learningOutcomes')?.value;
-    const prerequisiteKnowledge = document.getElementById('prerequisiteKnowledge')?.value;
-    const learningIssues = document.getElementById('learningIssues')?.value;
-    const techIntegration = document.getElementById('techIntegration')?.value;
+    const meta = getMetaFromInputs();
 
-    renderMap(filled, {
-        topic,
-        level,
-        duration,
-        studentProfile,
-        learningOutcomes,
-        prerequisiteKnowledge,
-        learningIssues,
-        techIntegration
-    });
+    renderMap(filled, meta);
     updateCharts(filled);
     switchTab('output');
+}
+
+function getFilledActivities() {
+    return activities.filter(a => a.interaction && a.alp && a.details);
+}
+
+function syncActivitiesFromDom() {
+    const items = Array.from(document.querySelectorAll('.activity-item'));
+    if (!items.length) return;
+    activities = items.map((item, index) => {
+        const id = parseInt(item.dataset.id, 10) || index + 1;
+        const getValue = field => item.querySelector(`[data-field="${field}"]`)?.value || '';
+        return {
+            id,
+            interaction: getValue('interaction'),
+            alp: getValue('alp'),
+            keyApp: getValue('keyApp'),
+            time: getValue('time') || '5',
+            details: getValue('details'),
+            tech: getValue('tech')
+        };
+    });
+    activityCounter = activities.length;
+    updateValidationWarnings();
+}
+
+function getMetaFromInputs() {
+    return {
+        topic: document.getElementById('topic')?.value || 'Lesson Design Map',
+        level: document.getElementById('level')?.value || '',
+        duration: document.getElementById('duration')?.value || 60,
+        studentProfile: document.getElementById('studentProfile')?.value || '',
+        learningOutcomes: document.getElementById('learningOutcomes')?.value || '',
+        prerequisiteKnowledge: document.getElementById('prerequisiteKnowledge')?.value || '',
+        learningIssues: document.getElementById('learningIssues')?.value || '',
+        techIntegration: document.getElementById('techIntegration')?.value || 'optional'
+    };
 }
 
 function renderMap(filledActivities, meta) {
@@ -426,7 +721,8 @@ function renderMap(filledActivities, meta) {
     });
 
     const activityCount = orderedActivities.length || 1;
-    html += `<div class="activities-grid" style="--activity-count:${activityCount};">`;
+    const fillClass = activityCount <= 6 ? 'fill-width' : '';
+    html += `<div class="activities-grid ${fillClass}" style="--activity-count:${activityCount};">`;
 
     orderedActivities.forEach((act, index) => {
         const rawKeyAppLabel = keyApplications.find(k => k.value === act.keyApp)?.label || act.keyApp;
@@ -436,7 +732,7 @@ function renderMap(filledActivities, meta) {
 
         html += `
             <div class="activity-slot" style="grid-row:${rowIndex}; grid-column:${columnIndex};">
-                <div class="activity-box ${act.alp}">
+                <div class="activity-box ${act.alp}" data-activity-id="${act.id}">
                     ${act.time ? `<div class="activity-time-inline">Activity ${act.id} (${act.time} min)</div>` : `<div class="activity-time-inline">Activity ${act.id}</div>`}
                     ${keyAppLabel ? `<div class="activity-alp-tag"><span class="alp-text">${keyAppLabel}</span></div>` : ''}
                     <div class="activity-title"></div>
@@ -447,7 +743,6 @@ function renderMap(filledActivities, meta) {
         `;
     });
 
-    html += buildArrowsSvg(orderedActivities, levels);
     html += '</div>';
 
     html += '</div></div>';
@@ -473,6 +768,270 @@ function renderMap(filledActivities, meta) {
 
     html += '</div>';
     container.innerHTML = html;
+    requestAnimationFrame(() => updateArrowsFromDom(orderedActivities, levels));
+    bindOutputInteractions();
+    updateValidationWarnings();
+}
+
+function updateValidationWarnings() {
+    const inputWarning = document.getElementById('inputWarning');
+    const outputWarning = document.getElementById('outputWarning');
+    const missingIds = [];
+
+    activities.forEach(activity => {
+        if (!activity.interaction || !activity.alp || !activity.details) {
+            missingIds.push(activity.id);
+        }
+    });
+
+    let text = '';
+    if (missingIds.length === 1) {
+        text = `Activity ${missingIds[0]}'s compulsory fields are not keyed in. Please key in or delete the activity.`;
+    } else if (missingIds.length > 1) {
+        text = `Activity ${formatIdList(missingIds)}'s compulsory fields are not keyed in. Please key in or delete the activities.`;
+    }
+    if (inputWarning) {
+        inputWarning.textContent = text;
+        inputWarning.classList.toggle('visible', Boolean(text));
+    }
+    if (outputWarning) {
+        outputWarning.textContent = text;
+        outputWarning.classList.toggle('visible', Boolean(text));
+    }
+}
+
+function formatIdList(ids) {
+    const list = ids.map(id => String(id));
+    if (list.length <= 2) return list.join(' and ');
+    return `${list.slice(0, -1).join(', ')} and ${list[list.length - 1]}`;
+}
+
+function bindOutputInteractions() {
+    const container = document.getElementById('designMapContainer');
+    if (!container) return;
+
+    const boxes = container.querySelectorAll('.activity-box[data-activity-id]');
+    boxes.forEach(box => {
+        box.addEventListener('pointerdown', handleActivityDragStart);
+        box.addEventListener('click', handleActivityClickOutput);
+    });
+}
+
+function handleActivityClickOutput(e) {
+    const box = e.currentTarget;
+    const id = parseInt(box.dataset.activityId, 10);
+    if (!id) return;
+    if (box.dataset.dragged === 'true') {
+        box.dataset.dragged = 'false';
+        return;
+    }
+    openOutputEditor(id);
+}
+
+function handleActivityDragStart(e) {
+    const box = e.currentTarget;
+    const id = parseInt(box.dataset.activityId, 10);
+    if (!id) return;
+
+    const startY = e.clientY;
+    const startX = e.clientX;
+    box.classList.add('dragging');
+    box.setPointerCapture(e.pointerId);
+
+    const onMove = moveEvent => {
+        const dy = moveEvent.clientY - startY;
+        box.style.transform = `translateY(${dy}px)`;
+        if (Math.abs(dy) > 4 || Math.abs(moveEvent.clientX - startX) > 4) {
+            box.dataset.dragged = 'true';
+        }
+    };
+
+    const onUp = upEvent => {
+        box.releasePointerCapture(upEvent.pointerId);
+        box.classList.remove('dragging');
+        box.style.transform = '';
+
+        const grid = document.querySelector('.activities-grid');
+        if (grid && box.dataset.dragged === 'true') {
+            const rect = grid.getBoundingClientRect();
+            const rowH = rect.height / 4;
+            const y = Math.min(rect.bottom - 1, Math.max(rect.top + 1, upEvent.clientY));
+            const rowIndex = Math.min(3, Math.max(0, Math.floor((y - rect.top) / rowH)));
+            const rowMap = ['community', 'class', 'group', 'individual'];
+            updateActivityField(id, 'interaction', rowMap[rowIndex]);
+            refreshOutputMap();
+        }
+
+        box.dataset.dragged = 'false';
+
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+    };
+
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+}
+
+function refreshOutputMap() {
+    const filled = getFilledActivities();
+    if (!filled.length) return;
+    renderMap(filled, getMetaFromInputs());
+}
+
+function openOutputEditor(activityId) {
+    const editor = document.getElementById('outputEditor');
+    if (!editor) return;
+    const activity = activities.find(a => a.id === activityId);
+    if (!activity) return;
+
+    selectedActivityId = activityId;
+    editor.classList.add('active');
+    editor.setAttribute('aria-hidden', 'false');
+    outputEditorAddMode = false;
+    updateOutputEditorCloseTitle();
+    const titleEl = document.getElementById('outputEditorTitle');
+    if (titleEl) {
+        titleEl.textContent = `(Activity ${activityId})`;
+    }
+
+    document.getElementById('editorInteraction').value = activity.interaction || '';
+    document.getElementById('editorAlp').value = activity.alp || '';
+    document.getElementById('editorTime').value = activity.time || '';
+    document.getElementById('editorDetails').value = activity.details || '';
+    document.getElementById('editorKeyApp').value = activity.keyApp || '';
+    document.getElementById('editorTech').value = activity.tech || '';
+}
+
+function closeOutputEditor() {
+    const editor = document.getElementById('outputEditor');
+    if (!editor) return;
+    selectedActivityId = null;
+    outputEditorAddMode = false;
+    updateOutputEditorCloseTitle();
+    editor.classList.remove('active');
+    editor.setAttribute('aria-hidden', 'true');
+}
+
+
+function handleEditorChange(e) {
+    if (!selectedActivityId) return;
+    const fieldMap = {
+        editorInteraction: 'interaction',
+        editorAlp: 'alp',
+        editorTime: 'time',
+        editorDetails: 'details',
+        editorKeyApp: 'keyApp',
+        editorTech: 'tech'
+    };
+
+    const field = fieldMap[e.target.id];
+    if (!field) return;
+    updateActivityField(selectedActivityId, field, e.target.value);
+    refreshOutputMap();
+}
+
+function handleEditorAddActivity() {
+    if (!selectedActivityId) {
+        addActivity();
+        renumberActivities();
+        const lastId = activities.length;
+        if (lastId) {
+            openOutputEditor(lastId);
+        }
+        outputEditorAddMode = true;
+        updateOutputEditorCloseTitle();
+        refreshOutputMap();
+        return;
+    }
+    insertActivityAfterSelected(selectedActivityId);
+}
+
+function handleEditorDeleteActivity() {
+    if (!selectedActivityId) return;
+    deleteActivityById(selectedActivityId);
+    closeOutputEditor();
+    refreshOutputMap();
+}
+
+function deleteActivityById(activityId) {
+    const item = document.querySelector(`.activity-item[data-id="${activityId}"]`);
+    if (item) item.remove();
+    activities = activities.filter(a => a.id !== activityId);
+    renumberActivities();
+    syncActivitiesFromDom();
+    saveState();
+    updateCharts(getFilledActivities());
+    refreshOutputMap();
+}
+
+function insertActivityAfterSelected(activityId) {
+    const container = document.getElementById('activitiesContainer');
+    if (!container) return;
+    const anchor = container.querySelector(`.activity-item[data-id="${activityId}"]`);
+    if (!anchor) return;
+
+    addActivity();
+    const newItem = container.lastElementChild;
+    if (newItem && newItem !== anchor) {
+        if (anchor.nextSibling) {
+            container.insertBefore(newItem, anchor.nextSibling);
+        } else {
+            container.appendChild(newItem);
+        }
+    }
+
+    renumberActivities();
+    syncActivitiesFromDom();
+    saveState();
+    refreshOutputMap();
+
+    const newIndex = Array.from(container.querySelectorAll('.activity-item')).indexOf(newItem) + 1;
+    if (newIndex) {
+        openOutputEditor(newIndex);
+        outputEditorAddMode = true;
+        updateOutputEditorCloseTitle();
+    }
+}
+
+function updateOutputEditorCloseTitle() {
+    const closeBtn = document.getElementById('outputEditorClose');
+    if (!closeBtn) return;
+    if (outputEditorAddMode) {
+        closeBtn.title = 'Close to add activity.';
+    } else {
+        closeBtn.removeAttribute('title');
+    }
+}
+
+function updateActivityField(activityId, field, value) {
+    const activity = activities.find(a => a.id === activityId);
+    if (!activity) return;
+    activity[field] = value;
+
+    if (selectedActivityId === activityId) {
+        const editorMap = {
+            interaction: 'editorInteraction',
+            alp: 'editorAlp',
+            time: 'editorTime',
+            details: 'editorDetails',
+            keyApp: 'editorKeyApp',
+            tech: 'editorTech'
+        };
+        const editorId = editorMap[field];
+        const editorEl = editorId ? document.getElementById(editorId) : null;
+        if (editorEl && editorEl.value !== value) {
+            editorEl.value = value;
+        }
+    }
+
+    const input = document.querySelector(`[data-id="${activityId}"][data-field="${field}"]`);
+    if (input) {
+        input.value = value;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    saveState();
 }
 
 function buildArrowsSvg(orderedActivities, levels) {
@@ -647,6 +1206,59 @@ function formatKeyAppLabel(label) {
     const line1 = words.slice(0, mid).join(' ');
     const line2 = words.slice(mid).join(' ');
     return `${line1}<br>${line2}`;
+}
+
+function updateArrowsFromDom(orderedActivities, levels) {
+    if (orderedActivities.length < 2) return;
+    const container = document.getElementById('designMapContainer');
+    const grid = container?.querySelector('.activities-grid');
+    if (!grid) return;
+    const existing = grid.querySelector('.activity-arrows');
+    if (existing) existing.remove();
+
+    const gridRect = grid.getBoundingClientRect();
+    const width = Math.max(grid.scrollWidth, grid.clientWidth);
+    const height = Math.max(grid.scrollHeight, grid.clientHeight);
+    const paths = [];
+
+    const getBoxRect = activityId => {
+        const box = grid.querySelector(`.activity-box[data-activity-id="${activityId}"]`);
+        return box ? box.getBoundingClientRect() : null;
+    };
+
+    for (let i = 0; i < orderedActivities.length - 1; i++) {
+        const current = orderedActivities[i];
+        const next = orderedActivities[i + 1];
+        const currentRect = getBoxRect(current.id);
+        const nextRect = getBoxRect(next.id);
+        if (!currentRect || !nextRect) continue;
+
+        const startX = currentRect.right - gridRect.left + grid.scrollLeft;
+        const startY = (currentRect.top + currentRect.bottom) / 2 - gridRect.top + grid.scrollTop;
+        const endX = nextRect.left - gridRect.left + grid.scrollLeft;
+        const endY = (nextRect.top + nextRect.bottom) / 2 - gridRect.top + grid.scrollTop;
+
+        if (Math.abs(startY - endY) < 2) {
+            paths.push(`M ${startX} ${startY} L ${endX - 4} ${endY}`);
+            continue;
+        }
+
+        paths.push(`M ${startX} ${startY} L ${startX} ${endY} L ${endX - 4} ${endY}`);
+    }
+
+    if (!paths.length) return;
+
+    const svg = `
+        <svg class="activity-arrows" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" style="width:${width}px;height:${height}px;">
+            <defs>
+                <marker id="arrowhead" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+                    <polygon points="0 0, 10 4, 0 8" fill="#333"></polygon>
+                </marker>
+            </defs>
+            ${paths.map(path => `<path d="${path}" stroke="#111" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none" marker-end="url(#arrowhead)"></path>`).join('')}
+        </svg>
+    `;
+    grid.insertAdjacentHTML('beforeend', svg);
 }
 
 function updateLccPrompt() {
@@ -839,6 +1451,369 @@ function handleChartsDownload() {
             }
         });
     }, 100);
+}
+
+async function handlePptxDownload() {
+    const activeTab = document.querySelector('.tab.active')?.getAttribute('data-tab');
+    switchTab('output');
+
+    setTimeout(async () => {
+        if (!window.PptxGenJS) return;
+
+        const filled = activities.filter(a => a.interaction && a.alp && a.details);
+        if (!filled.length) {
+            alert('Please generate a design map with at least one activity first.');
+            if (activeTab) switchTab(activeTab);
+            return;
+        }
+
+        const meta = {
+            topic: document.getElementById('topic')?.value || 'Lesson Design Map',
+            level: document.getElementById('level')?.value || '',
+            duration: document.getElementById('duration')?.value || '',
+            studentProfile: document.getElementById('studentProfile')?.value || '',
+            learningOutcomes: document.getElementById('learningOutcomes')?.value || '',
+            prerequisiteKnowledge: document.getElementById('prerequisiteKnowledge')?.value || '',
+            learningIssues: document.getElementById('learningIssues')?.value || '',
+            techIntegration: document.getElementById('techIntegration')?.value || ''
+        };
+
+        const pptx = new window.PptxGenJS();
+        pptx.layout = 'LAYOUT_WIDE';
+        buildEditableDesignMapSlides(pptx, filled, meta);
+        await buildChartsSlide(pptx, activeTab);
+        pptx.writeFile({ fileName: 'design-map-editable.pptx' });
+
+        if (activeTab) {
+            switchTab(activeTab);
+        }
+    }, 100);
+}
+
+function buildEditableDesignMapSlides(pptx, filledActivities, meta) {
+    buildMetaSlide(pptx, meta);
+    buildDesignMapSlide(pptx, filledActivities, meta);
+    buildLegendSlide(pptx);
+}
+
+function buildMetaSlide(pptx, meta) {
+    const slide = pptx.addSlide();
+    const slideW = 13.333;
+    const marginX = 0.7;
+    const marginY = 0.6;
+
+    slide.addText(meta.topic || 'Lesson Design Map', {
+        x: marginX,
+        y: marginY,
+        w: slideW - marginX * 2,
+        h: 0.5,
+        fontFace: 'Georgia',
+        fontSize: 26,
+        bold: true,
+        color: '0F172A'
+    });
+
+    const subtitleParts = [];
+    if (meta.level) subtitleParts.push(`Level: ${meta.level}`);
+    if (meta.duration) subtitleParts.push(`Duration: ${meta.duration} minutes`);
+    slide.addText(subtitleParts.join(' | '), {
+        x: marginX,
+        y: marginY + 0.6,
+        w: slideW - marginX * 2,
+        h: 0.4,
+        fontFace: 'Karla',
+        fontSize: 14,
+        color: '0F172A'
+    });
+
+    const metaLines = [];
+    if (meta.studentProfile) metaLines.push(`Student profile: ${meta.studentProfile}`);
+    if (meta.learningOutcomes) metaLines.push(`Learning outcomes: ${meta.learningOutcomes}`);
+    if (meta.prerequisiteKnowledge) metaLines.push(`Prerequisite knowledge: ${meta.prerequisiteKnowledge}`);
+    if (meta.techIntegration && meta.techIntegration !== 'optional') {
+        metaLines.push(`Level of technology integration: ${formatTechIntegration(meta.techIntegration)}`);
+    }
+    if (meta.learningIssues) metaLines.push(`Learning issue to be addressed: ${meta.learningIssues}`);
+
+    if (metaLines.length) {
+        slide.addText(metaLines.join('\n'), {
+            x: marginX,
+            y: marginY + 1.2,
+            w: slideW - marginX * 2,
+            h: 5.2,
+            fontFace: 'Karla',
+            fontSize: 14,
+            color: '334155',
+            valign: 'top'
+        });
+    }
+}
+
+function buildDesignMapSlide(pptx, filledActivities, meta) {
+    const slide = pptx.addSlide();
+    const slideW = 13.333;
+    const slideH = 7.5;
+    const marginX = 0.05;
+    const marginY = 0.35;
+    const labelW = 0.7;
+    const gridX = marginX + labelW;
+    const gridY = marginY + 0.1;
+    const gridW = slideW - marginX * 2 - labelW;
+    const gridH = slideH - gridY - marginY - 0.2;
+    const rows = 4;
+    const cols = Math.max(1, filledActivities.length);
+    const rowH = gridH / rows;
+    const colW = gridW / cols;
+
+    const socialLabels = [
+        'Community\n(Student - Community)',
+        'Class\n(Teacher - Student)',
+        'Group\n(Student - Student)',
+        'Individual\n(Student - Content)'
+    ];
+
+    for (let r = 0; r < rows; r++) {
+        slide.addShape(pptx.ShapeType.rect, {
+            x: gridX,
+            y: gridY + r * rowH,
+            w: gridW,
+            h: rowH,
+            fill: { color: 'FFFFFF' },
+            line: { color: 'CBD5F5', width: 1 }
+        });
+
+        slide.addText(socialLabels[r], {
+            x: marginX,
+            y: gridY + r * rowH + 0.05,
+            w: labelW - 0.1,
+            h: rowH - 0.1,
+            fontFace: 'Karla',
+            fontSize: 5.2,
+            color: '334155',
+            align: 'center',
+            valign: 'mid'
+        });
+    }
+
+    slide.addText('Time →', {
+        x: gridX + gridW / 2 - 0.4,
+        y: gridY + gridH + 0.05,
+        w: 0.8,
+        h: 0.3,
+        fontFace: 'Karla',
+        fontSize: 6,
+        color: '64748B',
+        align: 'center'
+    });
+
+    const alpFill = {
+        activate: '6ACED8',
+        promote: 'CC6BFF',
+        facilitate: 'FFC000',
+        monitor: 'F6BBBF'
+    };
+
+    const ordered = [...filledActivities].sort((a, b) => a.id - b.id);
+    ordered.forEach((act, index) => {
+        const rowIndex = ['community', 'class', 'group', 'individual'].indexOf(act.interaction);
+        const x = gridX + index * colW + 0.12;
+        const y = gridY + rowIndex * rowH + 0.12;
+        const w = colW - 0.24;
+        const h = rowH - 0.24;
+        const fill = alpFill[act.alp] || 'E2E8F0';
+
+        slide.addShape(pptx.ShapeType.roundRect, {
+            x,
+            y,
+            w,
+            h,
+            radius: 0.1,
+            fill: { color: fill },
+            line: { color: '94A3B8', width: 0.5 }
+        });
+
+        const header = act.time ? `Activity ${act.id} (${act.time} min)` : `Activity ${act.id}`;
+        const keyAppLabel = formatKeyAppLabel(getKeyAppLabel(act.keyApp)).replace(/<br>/g, '\n');
+        const techLine = act.tech ? `[Tool]: ${act.tech}` : '';
+        const lines = [header];
+        lines.push(act.details || '');
+        if (techLine) lines.push(techLine);
+
+        const fontSize = Math.max(6, Math.min(7, Math.floor(Math.min(w, h) * 4.5))) + 1;
+
+        slide.addText(lines.join('\n'), {
+            x: x + 0.08,
+            y: y + 0.08,
+            w: w - 0.16,
+            h: h - 0.16,
+            fontFace: 'Karla',
+            fontSize,
+            color: '0F172A',
+            valign: 'top',
+            autoFit: true
+        });
+
+        if (keyAppLabel) {
+            const tagH = Math.max(0.28, Math.min(0.4, h * 0.28));
+            const tagW = Math.max(0.6, w - 0.2);
+            const tagX = x + 0.1;
+            const tagY = y + h - tagH - 0.08;
+
+            slide.addShape(pptx.ShapeType.roundRect, {
+                x: tagX,
+                y: tagY,
+                w: tagW,
+                h: tagH,
+                radius: 0.05,
+                fill: { color: '2F2F2F' },
+                line: { color: '2F2F2F', width: 0.5 }
+            });
+
+            slide.addText(keyAppLabel, {
+                x: tagX + 0.04,
+                y: tagY + 0.02,
+                w: tagW - 0.08,
+                h: tagH - 0.04,
+                fontFace: 'Karla',
+                fontSize: 6.5,
+                bold: true,
+                color: 'FFFFFF',
+                align: 'center',
+                valign: 'mid',
+                autoFit: true
+            });
+        }
+    });
+
+    // Draw arrows between activities
+    if (ordered.length > 1) {
+        const addLine = (x1, y1, x2, y2, withArrow) => {
+            const minX = Math.min(x1, x2);
+            const minY = Math.min(y1, y2);
+            const w = Math.max(0.02, Math.abs(x2 - x1));
+            const h = Math.max(0.02, Math.abs(y2 - y1));
+            slide.addShape(pptx.ShapeType.line, {
+                x: minX,
+                y: minY,
+                w,
+                h,
+                line: { color: '111111', width: 1.5, endArrowType: withArrow ? 'triangle' : undefined }
+            });
+        };
+
+        ordered.forEach((act, index) => {
+            if (index === ordered.length - 1) return;
+            const next = ordered[index + 1];
+            const rowA = ['community', 'class', 'group', 'individual'].indexOf(act.interaction);
+            const rowB = ['community', 'class', 'group', 'individual'].indexOf(next.interaction);
+
+            const ax = gridX + index * colW + 0.12;
+            const ay = gridY + rowA * rowH + 0.12;
+            const aw = colW - 0.24;
+            const ah = rowH - 0.24;
+            const bx = gridX + (index + 1) * colW + 0.12;
+            const by = gridY + rowB * rowH + 0.12;
+            const bh = rowH - 0.24;
+
+            const startX = ax + aw;
+            const startY = ay + ah / 2;
+            const endX = bx;
+            const endY = by + bh / 2;
+
+            if (rowA === rowB) {
+                addLine(startX, startY, endX, endY, true);
+                return;
+            }
+
+            const midX = startX + 0.1;
+            addLine(startX, startY, midX, endY, false);
+            addLine(midX, endY, endX, endY, true);
+        });
+    }
+}
+
+function buildLegendSlide(pptx) {
+    const slide = pptx.addSlide();
+    const slideW = 13.333;
+    const legendW = 6.2;
+    const legendH = 3.6;
+    const x = (slideW - legendW) / 2;
+    const y = 1.6;
+
+    slide.addText('Legend', {
+        x,
+        y: y - 0.6,
+        w: legendW,
+        h: 0.4,
+        fontFace: 'Karla',
+        fontSize: 20,
+        bold: true,
+        color: '0F172A',
+        align: 'center'
+    });
+
+    slide.addShape(pptx.ShapeType.rect, {
+        x,
+        y,
+        w: legendW,
+        h: legendH,
+        fill: { color: 'FFFFFF' },
+        line: { color: 'CBD5F5', width: 1 }
+    });
+
+    alpStrategies.forEach((alp, i) => {
+        const itemY = y + 0.4 + i * 0.7;
+        slide.addShape(pptx.ShapeType.rect, {
+            x: x + 0.5,
+            y: itemY,
+            w: 0.35,
+            h: 0.35,
+            fill: { color: alp.color.replace('#', '') },
+            line: { color: '94A3B8', width: 0.5 }
+        });
+        slide.addText(alp.label, {
+            x: x + 1.0,
+            y: itemY - 0.02,
+            w: legendW - 1.4,
+            h: 0.4,
+            fontFace: 'Karla',
+            fontSize: 14,
+            color: '0F172A',
+            valign: 'mid'
+        });
+    });
+}
+
+async function buildChartsSlide(pptx, activeTab) {
+    if (!window.html2canvas) return;
+    switchTab('charts');
+
+    await new Promise(resolve => setTimeout(resolve, 120));
+    const target = document.getElementById('chartsDownloadRoot');
+    if (!target) {
+        if (activeTab) switchTab(activeTab);
+        return;
+    }
+
+    const cleanup = preparePieChartsForDownload(target);
+    try {
+        const canvas = await html2canvas(target, { backgroundColor: '#ffffff', scale: 2 });
+        const slide = pptx.addSlide();
+        const dataUrl = canvas.toDataURL('image/png');
+        const slideW = 13.333;
+        const slideH = 7.5;
+        const imgW = canvas.width / 96;
+        const imgH = canvas.height / 96;
+        const scaleRatio = Math.min(slideW / imgW, slideH / imgH);
+        const w = imgW * scaleRatio;
+        const h = imgH * scaleRatio;
+        const x = (slideW - w) / 2;
+        const y = (slideH - h) / 2;
+        slide.addImage({ data: dataUrl, x, y, w, h });
+    } finally {
+        cleanup();
+        if (activeTab) switchTab(activeTab);
+    }
 }
 
 function preparePieChartsForDownload(rootEl) {
