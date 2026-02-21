@@ -1,12 +1,13 @@
-# Design Map Generator
+ï»¿# Design Map Generator
 
 A browser-based tool for creating lesson design maps, reflection charts, and lesson-plan prompts for technology-enabled lessons.
 
 ## What this tool does
 
 - Builds a structured lesson design map from activity inputs.
+- Supports a markdown-assisted input workflow (with LCC guidance) to quickly populate lesson details and activities.
 - Visualizes time distribution across Active Learning Process, Interaction Types, and Key Application of Technology.
-- Exports the design map and charts as images for sharing or documentation.
+- Exports the design map and charts as images, and also exports an editable PPTX version of the design map.
 - Generates a ready-to-copy lesson-plan prompt for the Lesson Collaborator (LCC) on AIBots.
 - Saves inputs locally in the browser for temporary recovery.
 
@@ -33,6 +34,14 @@ A browser-based tool for creating lesson design maps, reflection charts, and les
   - Tech Tool: 25 characters max
 - Delete specific activities inline ("Delete Activity").
 - Activities are automatically renumbered after deletion.
+- Note for PPTX export: do not exceed 6 activities for best layout results.
+
+### Markdown input (with LCC's assistance)
+
+- A dedicated Markdown Input tab helps you structure lesson data in a guided format.
+- "Paste Sample Format" inserts a ready template.
+- "Apply Markdown" parses lesson metadata and activities into the form automatically.
+- "Copy Prompt" copies the markdown prompt for use with Lesson Collaborator (LCC).
 
 ### Design Map output
 
@@ -42,6 +51,9 @@ A browser-based tool for creating lesson design maps, reflection charts, and les
 - Time appears inline as "Activity X (N min)" at the top of each card.
 - Legend for Active Learning Process colors.
 - Duration mismatch warning appears if total activity time != planned lesson duration.
+- Click an activity card in output view to open an editor panel and update fields.
+- Add or delete activities directly from the output editor panel.
+- Drag activity cards vertically in output view to change interaction row placement.
 
 ### Charts (reflection)
 
@@ -54,8 +66,9 @@ A browser-based tool for creating lesson design maps, reflection charts, and les
 
 ### Export
 
-- Download Design Map Image (PNG) — captures the full map, even with many activities.
-- Download Charts (PNG) — optimized for clear color rendering.
+- Download Design Map Image (PNG) - captures the full map, even with many activities.
+- Download Charts (PNG) - optimized for clear color rendering.
+- Download Design Map (Editable PPTX) - exports metadata, map slide(s), legend, and charts for editing in PowerPoint.
 
 ### Lesson plan prompt generator (LCC)
 
@@ -70,11 +83,13 @@ A browser-based tool for creating lesson design maps, reflection charts, and les
 ## Suggested workflow
 
 1. Enter lesson overview details.
-2. Add activities and fill in required fields.
-3. Generate the Design Map.
-4. Review reflection charts.
-5. Open the Lesson Plan Prompt Generator (using LCC) tab and copy the prompt.
-6. Export images for sharing or documentation.
+2. (Optional) Use the Markdown Input tab to paste/apply structured markdown.
+3. Add activities and fill in required fields (or review imported ones).
+4. Generate the Design Map.
+5. Refine activities in output view (click-to-edit or drag to adjust interaction row).
+6. Review reflection charts.
+7. Open the Lesson Plan Prompt Generator (using LCC) tab and copy the prompt.
+8. Export PNG images and/or editable PPTX for sharing or documentation.
 
 ## Tip: Use with a lesson-planning chatbot
 
