@@ -2,7 +2,7 @@
 
 Browser-based lesson-design tool for building a Design Map, reflection charts, an LCC lesson-plan prompt, and an editable Lesson Observation Form.
 
-Created by Mathew Lim. Updated on 11 April 2026. Inspired by and Adapted from ETD's original Design Map Generrator and Gabriel Chua's protoypes.
+Created by Mathew Lim. Updated on 11 April 2026. Inspired by and Adapted from ETD's original Design Map Generrator and Gabriel Cheow's protoypes.
 
 ## Current page order
 
@@ -174,4 +174,3 @@ Created by Mathew Lim. Updated on 11 April 2026. Inspired by and Adapted from ET
 4. Review or download the `Charts`.
 5. Copy the prompt from `Lesson Plan Prompt Generator (using LCC)` and paste it into the Lesson Collaborator Chatbot (LCC) on AIBots.
 6. Edit and download the `Lesson Observation Form` as `.docx`.
-
