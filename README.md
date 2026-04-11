@@ -1,102 +1,177 @@
-﻿# Design Map Generator
+# Design Map Generator
 
-A browser-based tool for creating lesson design maps, reflection charts, and lesson-plan prompts for technology-enabled lessons.
+Browser-based lesson-design tool for building a Design Map, reflection charts, an LCC lesson-plan prompt, and an editable Lesson Observation Form.
 
-## What this tool does
+Created by Mathew Lim. Updated on 11 April 2026. Inspired by and Adapted from ETD's original Design Map Generrator and Gabriel Chua's protoypes.
 
-- Builds a structured lesson design map from activity inputs.
-- Supports a markdown-assisted input workflow (with LCC guidance) to quickly populate lesson details and activities.
-- Visualizes time distribution across Active Learning Process, Interaction Types, and Key Application of Technology.
-- Exports the design map and charts as images, and also exports an editable PPTX version of the design map.
-- Generates a ready-to-copy lesson-plan prompt for the Lesson Collaborator (LCC) on AIBots.
-- Saves inputs locally in the browser for temporary recovery.
+## Current page order
 
-## Core features
+1. Input
+2. Markdown Input (with AI chatbot assistance)
+3. Design Map
+4. Charts
+5. Lesson Plan Prompt Generator (using LCC)
+6. Lesson Observation Form
+7. How to use
 
-### Lesson overview inputs
+## What the app does
 
-- Topic, level, student profile, learning outcomes, prerequisite knowledge, and learning issues.
-- Level of technology integration (optional): Replacement, Amplification, Transformation.
-  - "Optional" will not appear on the generated design map.
-
-### Activity builder
-
-- Add multiple activities with:
-  - Interaction Type
-  - Active Learning Process
-  - Time (minutes)
-  - Activity details
-  - Key Application of Technology (optional)
-  - Tech tool (optional)
-- Required fields are clearly marked with `*`.
-- Inline character counters to keep entries within the card size:
-  - Activity Details: 115 characters max
-  - Tech Tool: 25 characters max
-- Delete specific activities inline ("Delete Activity").
-- Activities are automatically renumbered after deletion.
-- Note for PPTX export: do not exceed 6 activities for best layout results.
-
-### Markdown input (with LCC's assistance)
-
-- A dedicated Markdown Input tab helps you structure lesson data in a guided format.
-- "Paste Sample Format" inserts a ready template.
-- "Apply Markdown" parses lesson metadata and activities into the form automatically.
-- "Copy Prompt" copies the markdown prompt for use with Lesson Collaborator (LCC).
-
-### Design Map output
-
-- Activities plotted on a social plane (Community, Class, Group, Individual) against time flow.
-- Activity cards color-coded by Active Learning Process (consistent with charts).
-- Key Application of Technology appears as a vertical tag on each activity card.
-- Time appears inline as "Activity X (N min)" at the top of each card.
-- Legend for Active Learning Process colors.
-- Duration mismatch warning appears if total activity time != planned lesson duration.
-- Click an activity card in output view to open an editor panel and update fields.
-- Add or delete activities directly from the output editor panel.
-- Drag activity cards vertically in output view to change interaction row placement.
-
-### Charts (reflection)
-
-- Pie charts for:
+- Collects lesson overview details and activity-by-activity lesson flow.
+- Builds a visual Design Map across Community, Class, Group, and Individual interaction types.
+- Generates reflection charts for:
   - Active Learning Process
   - Types of Interaction
   - Key Application of Technology
-- Clear labels near the chart center.
-- Simple legend without minutes/percent for quick scanning.
+- Generates a prompt for the Lesson Collaborator Chatbot (LCC).
+- Builds an editable Lesson Observation Form inside the app and exports it as `.docx`.
+- Saves draft inputs locally in the browser.
 
-### Export
+## Main features
 
-- Download Design Map Image (PNG) - captures the full map, even with many activities.
-- Download Charts (PNG) - optimized for clear color rendering.
-- Download Design Map (Editable PPTX) - exports metadata, map slide(s), legend, and charts for editing in PowerPoint.
+### 1. Input
 
-### Lesson plan prompt generator (LCC)
+- Enter:
+  - Topic
+  - Level
+  - Student profile
+  - Duration
+  - Learning outcomes
+  - Prerequisite knowledge
+  - Learning issue to be addressed
+  - Level of technology integration
+- Add multiple activities in sequence.
+- Each activity supports:
+  - Interaction Type
+  - Active Learning Process
+  - Time (mins)
+  - Activity Details
+  - Key Application of Technology
+  - Tech Tool
+- Required fields are marked with `*`.
+- Helper text is shown for harder fields such as:
+  - Active Learning Process
+  - Key Application of Technology
+- Character counters are included for:
+  - Activity Details: 115 characters
+  - Tech Tool: 25 characters
+- Activities can be deleted inline and are renumbered automatically.
+- The main action is `Generate Design Map`.
 
-- A dedicated tab assembles a markdown prompt from all inputs and activities.
-- Click "Copy prompt" to paste into the Lesson Collaborator (LCC) on AIBots to generate a complete lesson plan.
+### 2. Markdown Input (with AI chatbot assistance)
 
-### Autosave (temporary)
+- Supports AI-assisted lesson entry using markdown.
+- The page heading explicitly references AI chatbot assistance, with examples such as:
+  - Pair
+  - ChatGPT
+  - Claude
+  - Gemini
+- `Paste Sample Format` inserts the required markdown template.
+- `Apply Markdown` parses the markdown and fills the lesson overview and activity inputs automatically.
+- `Copy Prompt` copies the sample markdown prompt for use with an AI chatbot.
+- Markdown is only captured if the field names and format match the expected template exactly.
 
-- Inputs are saved locally in the browser as you type.
-- Clearing all data removes the saved draft.
+### 3. Design Map
 
-## Suggested workflow
+- Generates the lesson flow visually after the required activity fields are completed.
+- Maps activities across the social plane:
+  - Community
+  - Class
+  - Group
+  - Individual
+- Shows activity timing inline in each activity card.
+- Uses Active Learning Process color coding.
+- Shows Key Application of Technology on the activity card when provided.
+- Displays a warning if total activity time does not match the planned lesson duration.
+- Supports editing from the output page:
+  - click an activity card to edit it
+  - add an activity from the output editor
+  - delete an activity from the output editor
+  - drag a card vertically to change its interaction row
+- Includes empty-state guidance when no map has been generated yet.
 
-1. Enter lesson overview details.
-2. (Optional) Use the Markdown Input tab to paste/apply structured markdown.
-3. Add activities and fill in required fields (or review imported ones).
-4. Generate the Design Map.
-5. Refine activities in output view (click-to-edit or drag to adjust interaction row).
-6. Review reflection charts.
-7. Open the Lesson Plan Prompt Generator (using LCC) tab and copy the prompt.
-8. Export PNG images and/or editable PPTX for sharing or documentation.
+### 4. Charts
 
-## Tip: Use with a lesson-planning chatbot
+- Shows three reflection charts based on completed activities:
+  - Active Learning Process
+  - Types of Interaction
+  - Key Application of Technology
+- Updates from the current lesson data.
+- Includes an empty state with a direct call to return to Input if no data is ready yet.
+- Supports chart download as an image.
 
-After generating the Design Map image, you can upload it to a lesson-planning chatbot (e.g., the Lesson Collaborator on AIBots) to:
+### 5. Lesson Plan Prompt Generator (using LCC)
 
-- Summarize the lesson flow.
-- Suggest refinements for pacing and interaction balance.
-- Draft a full lesson plan from the map structure.
+- Generates a ready-to-copy prompt from the lesson data already entered in the app.
+- The app uses the term:
+  - Lesson Collaborator Chatbot (LCC)
+- Users are directed to paste the prompt into the Lesson Collaborator Chatbot (LCC) on AIBots:
+  - `https://go.gov.sg/lcc-aibots`
+- The top tab and page heading both use:
+  - `Lesson Plan Prompt Generator (using LCC)`
 
-This creates a fast feedback loop between design mapping and lesson writing.
+### 6. Lesson Observation Form
+
+- Builds a lesson observation layout from the current lesson inputs and completed activities.
+- Uses a two-column table layout:
+  - left column: planned lesson activity details
+  - right column: lesson observation box
+- The form is editable inside the app before export.
+- Users can revise:
+  - form title
+  - subtitle
+  - topic, level, duration, student profile, technology integration
+  - learning outcomes, prerequisite knowledge, learning issue
+  - activity titles and activity details
+  - interaction, active learning process, key application of technology, tech tool
+  - observation notes
+- Observation boxes do not include guide lines.
+- `Refresh From Lesson Inputs` can regenerate the form from current lesson data.
+- Supports `.docx` download.
+
+### 7. How to use
+
+- Includes a dedicated `How to use` page at the end of the app.
+- Focuses on how to use each page in app order.
+- Avoids duplicated sections such as:
+  - recommended workflow
+  - downloads
+  - best results
+  - what each page does
+
+## Export options
+
+- Design Map Image
+- Design Map (Editable PPTX)
+- Charts
+- Lesson Observation Form (`.docx`)
+
+## Technical notes
+
+- Runs fully in the browser.
+- Draft data is saved temporarily in local browser storage.
+- `Clear All` removes the saved draft.
+- The app uses local bundled files:
+  - `html2canvas.min.js`
+  - `pptxgen.bundle.js`
+  - `script.js`
+- The Lesson Observation Form `.docx` export is generated client-side.
+- No external CDN is required for the `.docx` export path.
+- `JSZip` is accessed from the local `pptxgen.bundle.js` bundle rather than from an external CDN.
+
+## File overview
+
+- `index.html`: page structure, tab layout, help content, export controls
+- `style.css`: UI styling, typography, layout, chart and observation-form presentation
+- `script.js`: state management, markdown parsing, Design Map rendering, charts, LCC prompt generation, Lesson Observation Form generation, and export logic
+- `pptxgen.bundle.js`: local bundle used for PPTX export and bundled `JSZip`
+- `html2canvas.min.js`: local image capture library used for PNG export
+
+## Usage summary
+
+1. Enter lesson details in `Input`, or use `Markdown Input` to populate them.
+2. Add activities and click `Generate Design Map`.
+3. Review the `Design Map`.
+4. Review or download the `Charts`.
+5. Copy the prompt from `Lesson Plan Prompt Generator (using LCC)` and paste it into the Lesson Collaborator Chatbot (LCC) on AIBots.
+6. Edit and download the `Lesson Observation Form` as `.docx`.
+

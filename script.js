@@ -4,6 +4,7 @@ const STORAGE_KEY = 'design-map-state-v1';
 let saveIndicatorTimer = null;
 let selectedActivityId = null;
 let outputEditorAddMode = false;
+let observationForm = null;
 
 const interactionTypes = [
     { value: 'community', label: 'Community (Student - Community)' },
@@ -49,6 +50,8 @@ function init() {
     setupEventListeners();
     initOutputEditor();
     updateValidationWarnings();
+    updateLessonSummaryStrip();
+    updateCharts(getFilledActivities());
 }
 
 function setupEventListeners() {
@@ -88,15 +91,38 @@ function setupEventListeners() {
     if (copyBtn) {
         copyBtn.addEventListener('click', copyPromptToClipboard);
     }
+    const observationDocxBtn = document.getElementById('downloadObservationDocxBtn');
+    if (observationDocxBtn) {
+        observationDocxBtn.addEventListener('click', handleObservationDocxDownload);
+    }
+    const refreshObservationBtn = document.getElementById('refreshObservationBtn');
+    if (refreshObservationBtn) {
+        refreshObservationBtn.addEventListener('click', refreshObservationFormFromInputs);
+    }
 
     const container = document.getElementById('activitiesContainer');
     container.addEventListener('change', handleActivityChange);
     container.addEventListener('input', handleActivityChange);
     container.addEventListener('click', handleActivityClick);
 
+    const observationContainer = document.getElementById('lessonObservationContainer');
+    if (observationContainer) {
+        observationContainer.addEventListener('input', handleObservationFormInput);
+        observationContainer.addEventListener('change', handleObservationFormInput);
+    }
+
     document.querySelectorAll('#input input, #input textarea, #input select').forEach(el => {
         el.addEventListener('input', saveState);
         el.addEventListener('change', saveState);
+    });
+
+    document.addEventListener('click', e => {
+        const trigger = e.target.closest('[data-switch-tab]');
+        if (!trigger) return;
+        const tabName = trigger.getAttribute('data-switch-tab');
+        if (tabName) {
+            switchTab(tabName);
+        }
     });
 }
 
@@ -383,7 +409,7 @@ function addActivity(activityData = {}) {
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Active Learning Process <span class="required">*</span></label>
+                        <label>Active Learning Process <span class="required">*</span> <span class="field-hint">What students are mainly doing in this activity</span></label>
                         <select data-id="${activityCounter}" data-field="alp">
                             <option value="">Select process</option>
                             ${alpStrategies.map(s => `<option value="${s.value}">${s.label}</option>`).join('')}
@@ -400,7 +426,7 @@ function addActivity(activityData = {}) {
                     <div class="char-counter" data-counter-for="details">0/115</div>
                 </div>
                 <div class="form-group activity-extra">
-                    <label>Key Application of Technology</label>
+                    <label>Key Application of Technology <span class="field-hint">How the technology supports learning here</span></label>
                     <select data-id="${activityCounter}" data-field="keyApp">
                         <option value="">Select category</option>
                         ${keyApplications.map(k => `<option value="${k.value}">${k.label}</option>`).join('')}
@@ -425,6 +451,7 @@ function addActivity(activityData = {}) {
         }
     });
     updateCharCounters(div);
+    updateLessonSummaryStrip();
     updateLccPrompt();
 }
 
@@ -519,12 +546,14 @@ function saveState() {
             learningIssues: document.getElementById('learningIssues')?.value || '',
             techIntegration: document.getElementById('techIntegration')?.value || 'optional'
         },
-        activities
+        activities,
+        observationForm
     };
 
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         showSaveIndicator();
+        updateLessonSummaryStrip();
         updateLccPrompt();
         updateValidationWarnings();
     } catch (err) {
@@ -556,6 +585,8 @@ function loadState() {
         state.activities.forEach(activity => {
             addActivity(activity);
         });
+        observationForm = normalizeObservationFormState(state.observationForm);
+        updateLessonSummaryStrip();
         updateLccPrompt();
 
         return true;
@@ -599,8 +630,25 @@ function switchTab(tabName) {
     if (activeTab) activeTab.classList.add('active');
     if (activeContent) activeContent.classList.add('active');
     document.body.classList.toggle('output-open', tabName === 'output');
+    updateLessonSummaryStrip();
+    if (tabName === 'output') {
+        const filled = getFilledActivities();
+        const hasRenderedMap = Boolean(document.querySelector('#designMapContainer .design-map-wrapper'));
+        if (!filled.length) {
+            renderOutputEmptyState();
+            closeOutputEditor();
+        } else if (hasRenderedMap) {
+            renderMap(filled, getMetaFromInputs());
+        }
+    }
+    if (tabName === 'charts') {
+        updateCharts(getFilledActivities());
+    }
     if (tabName === 'lcc') {
         updateLccPrompt();
+    }
+    if (tabName === 'observation') {
+        updateLessonObservationForm();
     }
 }
 
@@ -657,6 +705,41 @@ function getMetaFromInputs() {
     };
 }
 
+function updateLessonSummaryStrip() {
+    const topicEl = document.getElementById('summaryTopic');
+    const levelEl = document.getElementById('summaryLevel');
+    const durationEl = document.getElementById('summaryDuration');
+    const activitiesEl = document.getElementById('summaryActivities');
+    const readyEl = document.getElementById('summaryReady');
+    if (!topicEl || !levelEl || !durationEl || !activitiesEl || !readyEl) return;
+
+    const topic = document.getElementById('topic')?.value || '';
+    const level = document.getElementById('level')?.value || '';
+    const duration = document.getElementById('duration')?.value || '';
+    const totalActivities = activities.length;
+    const completeActivities = getFilledActivities().length;
+    const durationValue = String(duration || '').trim();
+
+    topicEl.textContent = String(topic || '').trim() || 'Untitled lesson';
+    levelEl.textContent = String(level || '').trim() || 'Not set';
+    durationEl.textContent = durationValue ? `${durationValue} min` : 'Not set';
+    activitiesEl.textContent = `${totalActivities} total`;
+    readyEl.textContent = `${completeActivities} complete`;
+}
+
+function renderOutputEmptyState() {
+    const container = document.getElementById('designMapContainer');
+    if (!container) return;
+    container.innerHTML = `
+        <div class="empty-state empty-state-rich stagger-item" style="--delay:0.04s;">
+            <div class="empty-icon">Map</div>
+            <h3>No Design Map Yet</h3>
+            <p>Fill in the lesson activities, then generate the map when you are ready to see the lesson flow visually.</p>
+            <button class="btn btn-primary" type="button" data-switch-tab="input">Open Input</button>
+        </div>
+    `;
+}
+
 function renderMap(filledActivities, meta) {
     const container = document.getElementById('designMapContainer');
 
@@ -684,8 +767,8 @@ function renderMap(filledActivities, meta) {
     });
 
     let html = `
-            <div class="design-map-wrapper">
-            <div style="margin-bottom: 2rem;">
+            <div class="design-map-wrapper stagger-item" style="--delay:0.04s;">
+            <div class="design-map-summary stagger-item" style="--delay:0.08s; margin-bottom: 2rem;">
                 <h3 style="font-family: 'DM Serif Display', serif; font-size: 1.5rem; color: var(--primary);">${meta.topic}</h3>
                 <p style="color: #0f172a; margin-top: 0.5rem;">
                     ${meta.level ? `<strong>Level:</strong> ${meta.level} | ` : ''}<span class="${hasDurationMismatch ? 'duration-mismatch' : ''}">Duration: ${meta.duration} minutes</span>${hasDurationMismatch ? `<span class="duration-warning">; Activities total: ${totalTime} mins</span>` : ''}
@@ -699,7 +782,7 @@ function renderMap(filledActivities, meta) {
                 </div>
             </div>
 
-            <div style="position: relative;">
+            <div class="stagger-item" style="--delay:0.14s; position: relative;">
                 <div class="axis-label y-axis">Social Plane</div>
                 <div class="axis-label x-axis">Time -></div>
 
@@ -749,7 +832,7 @@ function renderMap(filledActivities, meta) {
 
     // Add legend
     html += `
-        <div class="legend-table">
+        <div class="legend-table stagger-item" style="--delay:0.22s;">
             <div class="legend-header">
                 <span>Legend</span>
             </div>
@@ -874,7 +957,12 @@ function handleActivityDragStart(e) {
 
 function refreshOutputMap() {
     const filled = getFilledActivities();
-    if (!filled.length) return;
+    updateCharts(filled);
+    if (!filled.length) {
+        renderOutputEmptyState();
+        closeOutputEditor();
+        return;
+    }
     renderMap(filled, getMetaFromInputs());
 }
 
@@ -1078,6 +1166,19 @@ function buildArrowsSvg(orderedActivities, levels) {
 }
 
 function updateCharts(filledActivities) {
+    const emptyState = document.getElementById('chartsEmptyState');
+    const content = document.getElementById('chartsContent');
+    const hasData = Array.isArray(filledActivities) && filledActivities.length > 0;
+    if (emptyState) {
+        emptyState.hidden = hasData;
+    }
+    if (content) {
+        content.hidden = !hasData;
+    }
+    if (!hasData) {
+        return;
+    }
+
     const alpTotals = {
         activate: 0,
         promote: 0,
@@ -1267,6 +1368,340 @@ function updateLccPrompt() {
     box.value = buildPromptMarkdown();
 }
 
+function createObservationFormStateFromInputs() {
+    const meta = getMetaFromInputs();
+    const filled = getFilledActivities().sort((a, b) => a.id - b.id);
+
+    return {
+        title: 'Lesson Observation Form',
+        subtitle: buildObservationSubtitle(meta),
+        topic: meta.topic || '',
+        level: meta.level || '',
+        duration: meta.duration ? `${meta.duration} minutes` : '',
+        studentProfile: meta.studentProfile || '',
+        techIntegration: formatPromptTechIntegration(meta.techIntegration),
+        learningOutcomes: meta.learningOutcomes || '',
+        prerequisiteKnowledge: meta.prerequisiteKnowledge || '',
+        learningIssues: meta.learningIssues || '',
+        rows: filled.map(createObservationRowFromActivity)
+    };
+}
+
+function createObservationRowFromActivity(activity) {
+    return {
+        id: String(activity.id || ''),
+        title: `Activity ${activity.id}`,
+        time: activity.time ? `${activity.time} min` : '',
+        interaction: getInteractionLabel(activity.interaction) || '',
+        alp: getAlpLabel(activity.alp) || '',
+        details: activity.details || '',
+        keyApp: getKeyAppLabel(activity.keyApp) || '',
+        tech: activity.tech || '',
+        observation: ''
+    };
+}
+
+function buildObservationSubtitle(meta) {
+    const parts = [];
+    if (meta.topic) parts.push(meta.topic);
+    if (meta.level) parts.push(meta.level);
+    if (meta.duration) parts.push(`${meta.duration} minutes`);
+    return parts.join(' | ');
+}
+
+function normalizeObservationFormState(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+
+    const normalize = value => String(value || '');
+    const rows = Array.isArray(raw.rows)
+        ? raw.rows.map((row, index) => ({
+            id: normalize(row?.id || index + 1),
+            title: normalize(row?.title || `Activity ${index + 1}`),
+            time: normalize(row?.time),
+            interaction: normalize(row?.interaction),
+            alp: normalize(row?.alp),
+            details: normalize(row?.details),
+            keyApp: normalize(row?.keyApp),
+            tech: normalize(row?.tech),
+            observation: normalize(row?.observation)
+        }))
+        : [];
+
+    return {
+        title: normalize(raw.title || 'Lesson Observation Form'),
+        subtitle: normalize(raw.subtitle),
+        topic: normalize(raw.topic),
+        level: normalize(raw.level),
+        duration: normalize(raw.duration),
+        studentProfile: normalize(raw.studentProfile),
+        techIntegration: normalize(raw.techIntegration),
+        learningOutcomes: normalize(raw.learningOutcomes),
+        prerequisiteKnowledge: normalize(raw.prerequisiteKnowledge),
+        learningIssues: normalize(raw.learningIssues),
+        rows
+    };
+}
+
+function ensureObservationForm(forceReset = false) {
+    const normalized = normalizeObservationFormState(observationForm);
+    if (!forceReset && normalized && (normalized.rows.length || hasObservationFormContent(normalized))) {
+        observationForm = normalized;
+        return observationForm;
+    }
+
+    syncActivitiesFromDom();
+    observationForm = createObservationFormStateFromInputs();
+    return observationForm;
+}
+
+function hasObservationFormContent(form) {
+    if (!form) return false;
+    const customTitle = String(form.title || '').trim();
+    if (customTitle && customTitle !== 'Lesson Observation Form') {
+        return true;
+    }
+    const topLevelFields = [
+        form.subtitle,
+        form.topic,
+        form.level,
+        form.duration,
+        form.studentProfile,
+        form.techIntegration,
+        form.learningOutcomes,
+        form.prerequisiteKnowledge,
+        form.learningIssues
+    ];
+    if (topLevelFields.some(value => String(value || '').trim())) {
+        return true;
+    }
+    return Array.isArray(form.rows) && form.rows.some(row =>
+        ['title', 'time', 'interaction', 'alp', 'details', 'keyApp', 'tech', 'observation']
+            .some(field => String(row?.[field] || '').trim())
+    );
+}
+
+function refreshObservationFormFromInputs() {
+    syncActivitiesFromDom();
+    if (hasObservationFormContent(observationForm)) {
+        const confirmed = confirm('Refresh the lesson observation form from the current lesson inputs? This will replace any edits made in the observation page.');
+        if (!confirmed) return;
+    }
+    observationForm = createObservationFormStateFromInputs();
+    saveState();
+    updateLessonObservationForm();
+}
+
+function updateLessonObservationForm() {
+    const container = document.getElementById('lessonObservationContainer');
+    if (!container) return;
+
+    const form = ensureObservationForm();
+
+    if (!form.rows.length) {
+        container.innerHTML = `
+            <div class="empty-state empty-state-rich stagger-item" style="--delay:0.04s;">
+                <div class="empty-icon">Form</div>
+                <h3>No Lesson Observation Form Yet</h3>
+                <p>Fill in at least one complete activity to generate the observation layout.</p>
+                <button class="btn btn-primary" type="button" data-switch-tab="input">Open Input</button>
+            </div>
+        `;
+        return;
+    }
+
+    const rows = form.rows.map((row, index) => buildObservationActivityRow(row, index)).join('');
+
+    container.innerHTML = `
+        <div class="lesson-observation-sheet stagger-item" style="--delay:0.04s;">
+            <div class="lesson-observation-heading stagger-item" style="--delay:0.08s;">
+                <div>
+                    <div class="lesson-observation-subtitle">
+                        <input
+                            type="text"
+                            value="${escapeAttribute(form.title)}"
+                            data-observation-meta="title"
+                            aria-label="Lesson observation form title"
+                        >
+                        <textarea
+                            rows="2"
+                            data-observation-meta="subtitle"
+                            aria-label="Lesson observation form subtitle"
+                            placeholder="Add a subtitle or context line for this form..."
+                        >${escapeHtml(form.subtitle)}</textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="lesson-observation-meta-grid stagger-item" style="--delay:0.14s;">
+                ${buildObservationMetaCard('topic', 'Topic', form.topic)}
+                ${buildObservationMetaCard('level', 'Level', form.level)}
+                ${buildObservationMetaCard('duration', 'Duration', form.duration)}
+                ${buildObservationMetaCard('studentProfile', 'Student profile', form.studentProfile, true)}
+                ${buildObservationMetaCard('techIntegration', 'Technology integration', form.techIntegration)}
+            </div>
+            <div class="lesson-observation-notes stagger-item" style="--delay:0.2s;">
+                ${buildObservationNoteCard('learningOutcomes', 'Learning outcomes', form.learningOutcomes)}
+                ${buildObservationNoteCard('prerequisiteKnowledge', 'Prerequisite knowledge', form.prerequisiteKnowledge)}
+                ${buildObservationNoteCard('learningIssues', 'Learning issue to be addressed', form.learningIssues)}
+            </div>
+            <div class="lesson-observation-table-wrap stagger-item" style="--delay:0.26s;">
+                <table class="lesson-observation-table">
+                    <thead>
+                        <tr>
+                            <th>Planned Lesson Activity</th>
+                            <th>Lesson Observation</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+function buildObservationMetaCard(field, label, value, multiline = false) {
+    const control = multiline
+        ? `<textarea rows="3" data-observation-meta="${field}" aria-label="${escapeAttribute(label)}">${escapeHtml(value)}</textarea>`
+        : `<input type="text" value="${escapeAttribute(value)}" data-observation-meta="${field}" aria-label="${escapeAttribute(label)}">`;
+
+    return `
+        <div class="lesson-observation-meta-card">
+            <span class="lesson-observation-meta-label">${escapeHtml(label)}</span>
+            <div class="lesson-observation-meta-value">${control}</div>
+        </div>
+    `;
+}
+
+function buildObservationNoteCard(field, label, value) {
+    return `
+        <div class="lesson-observation-note">
+            <strong>${escapeHtml(label)}</strong>
+            <textarea
+                rows="3"
+                data-observation-meta="${field}"
+                aria-label="${escapeAttribute(label)}"
+                placeholder="Type ${escapeAttribute(label.toLowerCase())} here..."
+            >${escapeHtml(value)}</textarea>
+        </div>
+    `;
+}
+
+function buildObservationField(rowIndex, field, label, value) {
+    return `
+        <label class="observation-field">
+            <span class="observation-field-label">${escapeHtml(label)}</span>
+            <input
+                type="text"
+                value="${escapeAttribute(value)}"
+                data-observation-row="${rowIndex}"
+                data-observation-field="${field}"
+                aria-label="${escapeAttribute(`Activity ${rowIndex + 1} ${label}`)}"
+            >
+        </label>
+    `;
+}
+
+function buildObservationActivityRow(row, rowIndex) {
+    const titleValue = row.title || `Activity ${rowIndex + 1}`;
+
+    return `
+        <tr>
+            <td>
+                <div class="observation-activity-title">
+                    <input
+                        type="text"
+                        value="${escapeAttribute(titleValue)}"
+                        data-observation-row="${rowIndex}"
+                        data-observation-field="title"
+                        aria-label="${escapeAttribute(`Activity ${rowIndex + 1} title`)}"
+                    >
+                </div>
+                <div class="observation-chip-row">
+                    ${buildObservationField(rowIndex, 'time', 'Time', row.time)}
+                    ${buildObservationField(rowIndex, 'interaction', 'Interaction', row.interaction)}
+                    ${buildObservationField(rowIndex, 'alp', 'Active Learning Process', row.alp)}
+                </div>
+                <label class="observation-activity-details">
+                    <span class="observation-field-label">Activity Details</span>
+                    <textarea
+                        rows="4"
+                        data-observation-row="${rowIndex}"
+                        data-observation-field="details"
+                        aria-label="${escapeAttribute(`Activity ${rowIndex + 1} details`)}"
+                    >${escapeHtml(row.details)}</textarea>
+                </label>
+                <div class="observation-inline-list">
+                    <label class="observation-field">
+                        <span class="observation-field-label">Key Application of Technology</span>
+                        <textarea
+                            rows="2"
+                            data-observation-row="${rowIndex}"
+                            data-observation-field="keyApp"
+                            aria-label="${escapeAttribute(`Activity ${rowIndex + 1} key application of technology`)}"
+                        >${escapeHtml(row.keyApp)}</textarea>
+                    </label>
+                    <label class="observation-field">
+                        <span class="observation-field-label">Tech Tool</span>
+                        <textarea
+                            rows="2"
+                            data-observation-row="${rowIndex}"
+                            data-observation-field="tech"
+                            aria-label="${escapeAttribute(`Activity ${rowIndex + 1} tech tool`)}"
+                        >${escapeHtml(row.tech)}</textarea>
+                    </label>
+                </div>
+            </td>
+            <td>
+                <div class="lesson-observation-box">
+                    <textarea
+                        rows="8"
+                        data-observation-row="${rowIndex}"
+                        data-observation-field="observation"
+                        aria-label="${escapeAttribute(`Lesson observation notes for activity ${rowIndex + 1}`)}"
+                        placeholder="Type lesson observation notes here..."
+                    >${escapeHtml(row.observation)}</textarea>
+                </div>
+            </td>
+        </tr>
+    `;
+}
+
+function handleObservationFormInput(e) {
+    const target = e.target;
+    if (!target) return;
+
+    const metaField = target.getAttribute('data-observation-meta');
+    if (metaField) {
+        ensureObservationForm();
+        observationForm[metaField] = target.value;
+        saveState();
+        return;
+    }
+
+    const rowIndex = parseInt(target.getAttribute('data-observation-row'), 10);
+    const field = target.getAttribute('data-observation-field');
+    if (Number.isNaN(rowIndex) || !field) return;
+
+    ensureObservationForm();
+    if (!observationForm.rows[rowIndex]) return;
+    observationForm.rows[rowIndex][field] = target.value;
+    saveState();
+}
+
+function escapeHtml(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function escapeAttribute(value) {
+    return escapeHtml(value);
+}
+
 function buildPromptMarkdown() {
     const topic = document.getElementById('topic')?.value || '';
     const level = document.getElementById('level')?.value || '';
@@ -1451,6 +1886,347 @@ function handleChartsDownload() {
             }
         });
     }, 100);
+}
+
+async function handleObservationDocxDownload() {
+    const form = ensureObservationForm();
+    updateLessonObservationForm();
+
+    if (!form.rows.length) {
+        alert('Please fill in at least one complete activity before downloading the lesson observation form.');
+        return;
+    }
+    if (!window.JSZip) {
+        alert('DOCX export is unavailable because JSZip is not loaded.');
+        return;
+    }
+
+    try {
+        const blob = await buildObservationDocxBlob(form);
+        downloadBlob(blob, 'lesson-observation-form.docx');
+    } catch (err) {
+        console.error('Unable to generate lesson observation DOCX', err);
+        alert('Unable to generate the lesson observation DOCX file.');
+    }
+}
+
+async function buildObservationDocxBlob(form) {
+    const zip = new window.JSZip();
+    const createdAt = new Date().toISOString();
+
+    zip.file('[Content_Types].xml', buildObservationContentTypesXml());
+    zip.folder('_rels').file('.rels', buildObservationRootRelsXml());
+
+    const props = zip.folder('docProps');
+    props.file('core.xml', buildObservationCoreXml(createdAt, form));
+    props.file('app.xml', buildObservationAppXml(form));
+
+    const word = zip.folder('word');
+    word.file('document.xml', buildObservationDocumentXml(form));
+    word.folder('_rels').file('document.xml.rels', buildObservationDocumentRelsXml());
+
+    return zip.generateAsync({
+        type: 'blob',
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        compression: 'DEFLATE'
+    });
+}
+
+function buildObservationContentTypesXml() {
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+    <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+    <Default Extension="xml" ContentType="application/xml"/>
+    <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+    <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+    <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+</Types>`;
+}
+
+function buildObservationRootRelsXml() {
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+    <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+    <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+    <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
+</Relationships>`;
+}
+
+function buildObservationCoreXml(createdAt, form) {
+    const title = xmlEscape(form.title || 'Lesson Observation Form');
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <dc:title>${title}</dc:title>
+    <dc:creator>Design Map Generator</dc:creator>
+    <cp:lastModifiedBy>Design Map Generator</cp:lastModifiedBy>
+    <dcterms:created xsi:type="dcterms:W3CDTF">${createdAt}</dcterms:created>
+    <dcterms:modified xsi:type="dcterms:W3CDTF">${createdAt}</dcterms:modified>
+</cp:coreProperties>`;
+}
+
+function buildObservationAppXml(form) {
+    const title = xmlEscape(form.title || 'Lesson Observation Form');
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">
+    <Application>Design Map Generator</Application>
+    <DocSecurity>0</DocSecurity>
+    <ScaleCrop>false</ScaleCrop>
+    <HeadingPairs>
+        <vt:vector size="2" baseType="variant">
+            <vt:variant><vt:lpstr>Sections</vt:lpstr></vt:variant>
+            <vt:variant><vt:i4>1</vt:i4></vt:variant>
+        </vt:vector>
+    </HeadingPairs>
+    <TitlesOfParts>
+        <vt:vector size="1" baseType="lpstr">
+            <vt:lpstr>${title}</vt:lpstr>
+        </vt:vector>
+    </TitlesOfParts>
+    <Company></Company>
+    <LinksUpToDate>false</LinksUpToDate>
+    <SharedDoc>false</SharedDoc>
+    <HyperlinksChanged>false</HyperlinksChanged>
+    <AppVersion>1.0</AppVersion>
+</Properties>`;
+}
+
+function buildObservationDocumentRelsXml() {
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>`;
+}
+
+function buildObservationDocumentXml(form) {
+    const metaLines = [
+        { label: 'Topic', value: form.topic },
+        { label: 'Level', value: form.level },
+        { label: 'Duration', value: form.duration },
+        { label: 'Student profile', value: form.studentProfile },
+        { label: 'Level of technology integration', value: form.techIntegration },
+        { label: 'Learning outcomes', value: form.learningOutcomes },
+        { label: 'Prerequisite knowledge', value: form.prerequisiteKnowledge },
+        { label: 'Learning issue to be addressed', value: form.learningIssues }
+    ].filter(item => String(item.value || '').trim());
+
+    const intro = [
+        buildWordParagraph(form.title || 'Lesson Observation Form', {
+            bold: true,
+            size: 32,
+            color: '0B4F6C',
+            align: 'center',
+            spacingAfter: 180
+        })
+    ];
+
+    if (String(form.subtitle || '').trim()) {
+        intro.push(buildWordParagraph(form.subtitle, {
+            size: 20,
+            color: '475569',
+            align: 'center',
+            spacingAfter: 220
+        }));
+    }
+
+    metaLines.forEach((line, index) => {
+        intro.push(buildWordParagraph(`${line.label}: ${line.value}`, {
+            size: 22,
+            color: '0F172A',
+            spacingAfter: index === metaLines.length - 1 ? 220 : 80
+        }));
+    });
+
+    const tableXml = buildObservationTableXml(form.rows || []);
+
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:wp14="http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:w10="urn:schemas-microsoft-com:office:word" xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" xmlns:wpg="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup" xmlns:wpi="http://schemas.microsoft.com/office/word/2010/wordprocessingInk" xmlns:wne="http://schemas.microsoft.com/office/2006/wordml" xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape" mc:Ignorable="w14 wp14">
+    <w:body>
+        ${intro.join('')}
+        ${tableXml}
+        <w:p/>
+        <w:sectPr>
+            <w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/>
+            <w:pgMar w:top="720" w:right="720" w:bottom="720" w:left="720" w:header="450" w:footer="450" w:gutter="0"/>
+        </w:sectPr>
+    </w:body>
+</w:document>`;
+}
+
+function buildObservationTableXml(rows) {
+    const leftWidth = 6700;
+    const rightWidth = 8500;
+    const tableRows = [
+        `<w:tr>
+            <w:trPr>
+                <w:tblHeader/>
+            </w:trPr>
+            ${buildWordCell(buildWordParagraph('Planned Lesson Activity', {
+                bold: true,
+                size: 22,
+                color: '0B4F6C',
+                align: 'center',
+                spacingAfter: 0
+            }), leftWidth, { fill: 'EAF3FB', center: true })}
+            ${buildWordCell(buildWordParagraph('Lesson Observation', {
+                bold: true,
+                size: 22,
+                color: '0B4F6C',
+                align: 'center',
+                spacingAfter: 0
+            }), rightWidth, { fill: 'EAF3FB', center: true })}
+        </w:tr>`
+    ];
+
+    rows.forEach((row, index) => {
+        const paragraphs = [
+            buildWordParagraph(row.title || `Activity ${index + 1}`, {
+                bold: true,
+                size: 24,
+                color: '0B4F6C',
+                spacingAfter: 100
+            }),
+            buildWordParagraph(`Time: ${row.time || 'Not specified'}`, {
+                size: 20,
+                spacingAfter: 40
+            }),
+            buildWordParagraph(`Interaction: ${row.interaction || 'Not specified'}`, {
+                size: 20,
+                spacingAfter: 40
+            }),
+            buildWordParagraph(`Active learning process: ${row.alp || 'Not specified'}`, {
+                size: 20,
+                spacingAfter: 80
+            })
+        ];
+
+        paragraphs.push(...buildWordParagraphsFromText(`Activity details: ${row.details || ''}`, {
+            size: 20,
+            spacingAfter: row.keyApp || row.tech ? 80 : 120
+        }));
+
+        if (row.keyApp) {
+            paragraphs.push(buildWordParagraph(`Key application of technology: ${row.keyApp}`, {
+                size: 20,
+                spacingAfter: row.tech ? 50 : 120
+            }));
+        }
+        if (row.tech) {
+            paragraphs.push(buildWordParagraph(`Tech tool: ${row.tech}`, {
+                size: 20,
+                spacingAfter: 120
+            }));
+        }
+
+        const observationParagraphs = String(row.observation || '').trim()
+            ? buildWordParagraphsFromText(row.observation, { size: 20, spacingAfter: 40 }).join('')
+            : `${buildWordParagraph(' ', { spacingAfter: 0 })}${buildWordParagraph(' ', { spacingAfter: 0 })}`;
+
+        tableRows.push(`
+            <w:tr>
+                <w:trPr>
+                    <w:trHeight w:val="2200" w:hRule="atLeast"/>
+                </w:trPr>
+                ${buildWordCell(paragraphs.join(''), leftWidth)}
+                ${buildWordCell(observationParagraphs, rightWidth)}
+            </w:tr>
+        `);
+    });
+
+    return `
+        <w:tbl>
+            <w:tblPr>
+                <w:tblW w:w="15200" w:type="dxa"/>
+                <w:tblLayout w:type="fixed"/>
+                <w:tblBorders>
+                    <w:top w:val="single" w:sz="8" w:space="0" w:color="C9D8E7"/>
+                    <w:left w:val="single" w:sz="8" w:space="0" w:color="C9D8E7"/>
+                    <w:bottom w:val="single" w:sz="8" w:space="0" w:color="C9D8E7"/>
+                    <w:right w:val="single" w:sz="8" w:space="0" w:color="C9D8E7"/>
+                    <w:insideH w:val="single" w:sz="8" w:space="0" w:color="C9D8E7"/>
+                    <w:insideV w:val="single" w:sz="8" w:space="0" w:color="C9D8E7"/>
+                </w:tblBorders>
+                <w:tblCellMar>
+                    <w:top w:w="140" w:type="dxa"/>
+                    <w:left w:w="140" w:type="dxa"/>
+                    <w:bottom w:w="140" w:type="dxa"/>
+                    <w:right w:w="140" w:type="dxa"/>
+                </w:tblCellMar>
+            </w:tblPr>
+            <w:tblGrid>
+                <w:gridCol w:w="${leftWidth}"/>
+                <w:gridCol w:w="${rightWidth}"/>
+            </w:tblGrid>
+            ${tableRows.join('')}
+        </w:tbl>
+    `;
+}
+
+function buildWordCell(content, width, options = {}) {
+    const props = [
+        `<w:tcW w:w="${width}" w:type="dxa"/>`,
+        '<w:vAlign w:val="top"/>'
+    ];
+
+    if (options.fill) {
+        props.push(`<w:shd w:val="clear" w:color="auto" w:fill="${options.fill}"/>`);
+    }
+    if (options.center) {
+        props.push('<w:textDirection w:val="lrTb"/>');
+    }
+
+    return `<w:tc><w:tcPr>${props.join('')}</w:tcPr>${content || '<w:p/>'}</w:tc>`;
+}
+
+function buildWordParagraphsFromText(text, options = {}) {
+    const lines = String(text || '').split(/\r?\n/);
+    return lines.map((line, index) => buildWordParagraph(line || ' ', {
+        ...options,
+        spacingAfter: index === lines.length - 1 ? options.spacingAfter : 40
+    }));
+}
+
+function buildWordParagraph(text, options = {}) {
+    const paragraphProps = [];
+    if (options.align) {
+        paragraphProps.push(`<w:jc w:val="${options.align}"/>`);
+    }
+
+    const spacing = [];
+    if (options.spacingBefore !== undefined) spacing.push(`w:before="${options.spacingBefore}"`);
+    if (options.spacingAfter !== undefined) spacing.push(`w:after="${options.spacingAfter}"`);
+    if (spacing.length) {
+        paragraphProps.push(`<w:spacing ${spacing.join(' ')}/>`);
+    }
+
+    const runProps = [];
+    if (options.bold) runProps.push('<w:b/>');
+    if (options.size) {
+        runProps.push(`<w:sz w:val="${options.size}"/>`);
+        runProps.push(`<w:szCs w:val="${options.size}"/>`);
+    }
+    if (options.color) {
+        runProps.push(`<w:color w:val="${options.color}"/>`);
+    }
+
+    return `<w:p>${paragraphProps.length ? `<w:pPr>${paragraphProps.join('')}</w:pPr>` : ''}<w:r>${runProps.length ? `<w:rPr>${runProps.join('')}</w:rPr>` : ''}<w:t xml:space="preserve">${xmlEscape(text || '')}</w:t></w:r></w:p>`;
+}
+
+function xmlEscape(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+}
+
+function downloadBlob(blob, fileName) {
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 async function handlePptxDownload() {

@@ -20,13 +20,80 @@
 
     <div class="container">
         <div class="tabs">
-            <button class="tab active" data-tab="input">Input</button>
-            <button class="tab" data-tab="markdown">Markdown Input (with LCC's assistance)</button>
-            <button class="tab" data-tab="output">Design Map</button>
-            <button class="tab" data-tab="charts">Charts</button>
-            <button class="tab" data-tab="lcc">Lesson Plan Prompt Generator (using LCC)</button>
+            <button class="tab active" data-tab="input">
+                <span class="tab-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="4" y="5" width="6" height="6" rx="1.3"></rect>
+                        <rect x="14" y="5" width="6" height="6" rx="1.3"></rect>
+                        <rect x="4" y="13" width="16" height="6" rx="1.3"></rect>
+                    </svg>
+                </span>
+                <span class="tab-label">Input</span>
+            </button>
+            <button class="tab" data-tab="markdown">
+                <span class="tab-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M6 4.5h12a1.5 1.5 0 0 1 1.5 1.5v12A1.5 1.5 0 0 1 18 19.5H6A1.5 1.5 0 0 1 4.5 18V6A1.5 1.5 0 0 1 6 4.5Z"></path>
+                        <path d="M8 9h8"></path>
+                        <path d="M8 13h8"></path>
+                        <path d="M8 17h5"></path>
+                    </svg>
+                </span>
+                <span class="tab-label">Markdown Input (with AI chatbot assistance)</span>
+            </button>
+            <button class="tab" data-tab="output">
+                <span class="tab-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="6.5" cy="7" r="2.5"></circle>
+                        <circle cx="17.5" cy="12" r="2.5"></circle>
+                        <circle cx="6.5" cy="17" r="2.5"></circle>
+                        <path d="M8.8 8.3 15 10.8"></path>
+                        <path d="M8.8 15.8 15 13.2"></path>
+                    </svg>
+                </span>
+                <span class="tab-label">Design Map</span>
+            </button>
+            <button class="tab" data-tab="charts">
+                <span class="tab-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 3a9 9 0 1 1-9 9h9V3Z"></path>
+                        <path d="M12 3a9 9 0 0 1 9 9h-9V3Z"></path>
+                    </svg>
+                </span>
+                <span class="tab-label">Charts</span>
+            </button>
+            <button class="tab" data-tab="lcc">
+                <span class="tab-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M6 6.5h12A2.5 2.5 0 0 1 20.5 9v5A2.5 2.5 0 0 1 18 16.5H11l-4.5 3v-3H6A2.5 2.5 0 0 1 3.5 14V9A2.5 2.5 0 0 1 6 6.5Z"></path>
+                        <path d="M9 10.5h6"></path>
+                        <path d="M9 13.5h4"></path>
+                    </svg>
+                </span>
+                <span class="tab-label">Lesson Plan Prompt Generator (using LCC)</span>
+            </button>
+            <button class="tab" data-tab="observation">
+                <span class="tab-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="5" y="4.5" width="14" height="15" rx="2"></rect>
+                        <path d="M9 4.5h6v3H9z"></path>
+                        <path d="M8 11h8"></path>
+                        <path d="M8 15h8"></path>
+                    </svg>
+                </span>
+                <span class="tab-label">Lesson Observation Form</span>
+            </button>
+            <button class="tab" data-tab="howto">
+                <span class="tab-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="8"></circle>
+                        <path d="M12 8v4l2.5 2.5"></path>
+                        <path d="M12 16h.01"></path>
+                    </svg>
+                </span>
+                <span class="tab-label">How to use</span>
+            </button>
         </div>
-
         <!-- INPUT TAB -->
         <div id="input" class="tab-content active">
             <div class="section">
@@ -90,12 +157,77 @@
             </div>
         </div>
 
+        <!-- HOW TO USE TAB -->
+        <div id="howto" class="tab-content">
+            <div class="section howto-shell">
+                <div class="howto-hero stagger-item" style="--delay:0.02s;">
+                    <p class="howto-kicker">Guide</p>
+                    <h2 class="howto-title">How to use the Design Map Generator</h2>
+                    <p class="howto-lead">
+                        Use the tabs from left to right. Each page below explains what to key in, what button to click, and what output you can get from that page.
+                    </p>
+                </div>
+
+                <section class="howto-flow howto-pages stagger-item" style="--delay:0.1s;">
+                    <h3>How to use each page</h3>
+
+                    <article class="howto-step">
+                        <div class="howto-step-number">1</div>
+                        <div class="howto-step-body">
+                            <h4>Input</h4>
+                            <p>Enter the lesson overview first, then add each activity in order. Fill in the compulsory fields for each activity, and click <strong>Generate Design Map</strong> when the lesson sequence is ready.</p>
+                        </div>
+                    </article>
+
+                    <article class="howto-step">
+                        <div class="howto-step-number">2</div>
+                        <div class="howto-step-body">
+                            <h4>Markdown Input (with AI chatbot assistance)</h4>
+                            <p>Use this page only if you want AI help. Copy the sample prompt, ask your chatbot to return the lesson in the exact markdown format shown, paste the markdown into the box, then click <strong>Apply Markdown</strong>.</p>
+                        </div>
+                    </article>
+
+                    <article class="howto-step">
+                        <div class="howto-step-number">3</div>
+                        <div class="howto-step-body">
+                            <h4>Design Map</h4>
+                            <p>Review the generated lesson flow here. You can edit activities from this page if needed, then download the Design Map as an image or editable PPTX.</p>
+                        </div>
+                    </article>
+
+                    <article class="howto-step">
+                        <div class="howto-step-number">4</div>
+                        <div class="howto-step-body">
+                            <h4>Charts</h4>
+                            <p>Use the charts to review how lesson time is distributed across interaction types, active learning processes, and technology use. Download the charts if you want a record of the reflection view.</p>
+                        </div>
+                    </article>
+
+                    <article class="howto-step">
+                        <div class="howto-step-number">5</div>
+                        <div class="howto-step-body">
+                            <h4>Lesson Plan Prompt Generator</h4>
+                            <p>Copy the generated prompt and paste it into the <strong>Lesson Collaborator Chatbot (LCC)</strong> on AIBots at <a class="instruction-link" href="https://go.gov.sg/lcc-aibots" target="_blank" rel="noopener noreferrer">https://go.gov.sg/lcc-aibots</a> to generate a fuller lesson plan from the lesson data already entered in the app.</p>
+                        </div>
+                    </article>
+
+                    <article class="howto-step">
+                        <div class="howto-step-number">6</div>
+                        <div class="howto-step-body">
+                            <h4>Lesson Observation Form</h4>
+                            <p>Use this page to review and edit the observation form inside the app. When the wording is ready, download the editable DOCX version.</p>
+                        </div>
+                    </article>
+                </section>
+            </div>
+        </div>
+
         <!-- MARKDOWN INPUT TAB -->
         <div id="markdown" class="tab-content">
             <div class="section">
                 <div class="section-header">
-                    <h2 class="section-title">Markdown Input (with LCC's assistance)</h2>
-                    <div class="section-header-actions">
+                    <h2 class="section-title">Markdown Input (with AI chatbot assistance, e.g. Pair, ChatGPT, Claude, Gemini, etc.)</h2>
+                    <div class="section-header-actions page-actions">
                         <button class="btn btn-secondary" id="pasteMarkdownSampleBtn" type="button">Paste Sample Format</button>
                         <button class="btn btn-primary" id="applyMarkdownBtn" type="button">Apply Markdown</button>
                     </div>
@@ -202,16 +334,23 @@ Tech Tool:</pre>
         <!-- OUTPUT TAB -->
         <div id="output" class="tab-content">
             <div class="section">
-                <div class="section-header section-header-right">
+                <div class="section-header">
+                    <div>
+                        <h2 class="section-title">Design Map</h2>
+                        <p class="instruction-text">Review the generated lesson flow, adjust activities where needed, and export the visual layout.</p>
+                    </div>
+                </div>
+                <div class="validation-warning" id="outputWarning" aria-live="polite"></div>
+                <div class="section-header section-header-right page-actions">
                     <button class="btn btn-secondary" id="downloadJpgBtn">Download Design Map Image</button>
                     <button class="btn btn-secondary" id="downloadPptxBtn" title="Don't exceed 6 activities for PPTX download.">Download Design Map (Editable PPTX)</button>
                 </div>
-                <div class="validation-warning" id="outputWarning" aria-live="polite"></div>
                 <div id="designMapContainer" class="print-root">
-                    <div class="empty-state">
+                    <div class="empty-state empty-state-rich stagger-item" style="--delay:0.04s;">
                         <div class="empty-icon">Map</div>
                         <h3>No Design Map Yet</h3>
-                        <p>Fill in activities and click "Generate Design Map"</p>
+                        <p>Fill in the lesson activities, then generate the map when you are ready to see the lesson flow visually.</p>
+                        <button class="btn btn-primary" type="button" data-switch-tab="input">Open Input</button>
                     </div>
                 </div>
             </div>
@@ -225,7 +364,7 @@ Tech Tool:</pre>
                     <select id="editorInteraction"></select>
                 </div>
                 <div class="form-group">
-                    <label>Active Learning Process <span class="required" title="Compulsory field">*</span></label>
+                    <label>Active Learning Process <span class="required" title="Compulsory field">*</span> <span class="field-hint">What students are mainly doing in this part of the lesson</span></label>
                     <select id="editorAlp"></select>
                 </div>
                 <div class="form-group">
@@ -237,7 +376,7 @@ Tech Tool:</pre>
                     <textarea id="editorDetails" maxlength="115"></textarea>
                 </div>
                 <div class="form-group">
-                    <label>Key Application of Technology</label>
+                    <label>Key Application of Technology <span class="field-hint">How the technology strengthens learning in this activity</span></label>
                     <select id="editorKeyApp"></select>
                 </div>
                 <div class="form-group">
@@ -255,12 +394,24 @@ Tech Tool:</pre>
         <div id="charts" class="tab-content">
             <div class="section">
                 <div class="section-header">
-                    <h2 class="section-title">Charts</h2>
+                    <div>
+                        <h2 class="section-title">Charts</h2>
+                        <p class="instruction-text">Use these charts to reflect on the balance of interaction, active learning, and technology integration across the lesson.</p>
+                    </div>
+                </div>
+                <div class="section-header section-header-right page-actions">
                     <button class="btn btn-secondary" id="downloadChartsBtn">Download Charts</button>
                 </div>
+                <div id="chartsEmptyState" class="empty-state empty-state-rich stagger-item" style="--delay:0.04s;">
+                    <div class="empty-icon">Data</div>
+                    <h3>No Charts Yet</h3>
+                    <p>Add lesson activities and generate the Design Map to see the reflection charts.</p>
+                    <button class="btn btn-primary" type="button" data-switch-tab="input">Open Input</button>
+                </div>
+                <div id="chartsContent" hidden>
                 <div id="chartsDownloadRoot">
                     <div class="charts-grid">
-                    <div class="chart-card">
+                    <div class="chart-card stagger-item" style="--delay:0.04s;">
                         <div class="chart-header">
                             <h3>Active Learning Process</h3>
                             <p>Time distribution (in minutes)</p>
@@ -297,7 +448,7 @@ Tech Tool:</pre>
                         </div>
                     </div>
 
-                    <div class="chart-card">
+                    <div class="chart-card stagger-item" style="--delay:0.1s;">
                         <div class="chart-header">
                             <h3>Types of Interaction</h3>
                             <p>Time distribution (in minutes)</p>
@@ -333,7 +484,7 @@ Tech Tool:</pre>
                             </div>
                         </div>
                     </div>
-                    <div class="chart-card">
+                    <div class="chart-card stagger-item" style="--delay:0.16s;">
                         <div class="chart-header">
                             <h3>Key Application of Technology</h3>
                             <p>Time distribution (in minutes)</p>
@@ -395,7 +546,7 @@ Tech Tool:</pre>
                     </div>
                 </div>
 
-                <div class="chart-footnote">
+                <div class="chart-footnote stagger-item" style="--delay:0.24s;">
                     <p>Footnote:</p>
                     <ol>
                         <li>Charts are for teacher to reflect on their created lesson plan and design lesson.</li>
@@ -404,6 +555,33 @@ Tech Tool:</pre>
                     </ol>
                 </div>
                 </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- LESSON OBSERVATION TAB -->
+        <div id="observation" class="tab-content">
+            <div class="section">
+                <div class="section-header">
+                    <div>
+                        <h2 class="section-title">Lesson Observation Form</h2>
+                        <p class="instruction-text">
+                            Turn the lesson into an editable observation table, refine the wording, and export it as a DOCX file.
+                        </p>
+                    </div>
+                </div>
+                <div class="section-header section-header-right page-actions">
+                    <button class="btn btn-ghost" id="refreshObservationBtn" type="button">Refresh From Lesson Inputs</button>
+                    <button class="btn btn-secondary" id="downloadObservationDocxBtn" type="button">Download Lesson Observation Form (.docx)</button>
+                </div>
+                <div id="lessonObservationContainer">
+                    <div class="empty-state empty-state-rich stagger-item" style="--delay:0.04s;">
+                        <div class="empty-icon">Form</div>
+                        <h3>No Lesson Observation Form Yet</h3>
+                        <p>Start from the Input page, add the lesson activities, and generate the Design Map first.</p>
+                        <button class="btn btn-primary" type="button" data-switch-tab="input">Open Input</button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -411,17 +589,22 @@ Tech Tool:</pre>
         <div id="lcc" class="tab-content">
             <div class="section">
                 <div class="section-header">
-                    <h2 class="section-title">Lesson Plan Prompt Generator (using Lesson Collaborator Chatbot)</h2>
+                    <div>
+                        <h2 class="section-title">Lesson Plan Prompt Generator (using LCC)</h2>
+                        <p class="instruction-text">Use this page when you want to turn the lesson data into a prompt for the Lesson Collaborator Chatbot (LCC).</p>
+                    </div>
                 </div>
                 <p class="instruction-text">
-                    Copy the entire prompt below and paste it into the Lesson Collaborator (LCC) on AIBots
+                    Copy the entire prompt below and paste it into the Lesson Collaborator Chatbot (LCC) on AIBots
                     (<a class="instruction-link" href="https://go.gov.sg/lcc-aibots" target="_blank" rel="noopener noreferrer">https://go.gov.sg/lcc-aibots</a>)
                     to generate a complete lesson plan.
                 </p>
                 <p class="instruction-text">The markdown box captures all inputs from the earlier sections.</p>
+                <div class="section-header section-header-right page-actions">
+                    <button class="btn btn-primary" id="copyPromptBtn" type="button">Copy prompt</button>
+                </div>
                 <div class="markdown-panel">
                     <div class="markdown-toolbar">
-                        <button class="btn btn-secondary" id="copyPromptBtn" type="button">Copy prompt</button>
                         <span class="copy-status" id="copyStatus" aria-live="polite"></span>
                     </div>
                     <textarea id="promptMarkdown" class="markdown-box" readonly></textarea>
@@ -429,5 +612,10 @@ Tech Tool:</pre>
             </div>
         </div>
     </div>
+    <footer class="page-footer">
+        <div class="page-footer-content">
+            Created by Mathew Lim. Updated on 11 April 2026. Inspired by and Adapted from ETD's original Design Map Generrator and Gabriel Chua's protoypes
+        </div>
+    </footer>
 </body>
 </html>
