@@ -616,6 +616,32 @@ textarea {
     line-height: 1.7;
 }
 
+.markdown-guide {
+    margin-bottom: 1rem;
+    padding: 0.95rem 1rem;
+    border: 1px solid #d8e6f4;
+    border-radius: 14px;
+    background: linear-gradient(180deg, #fbfdff 0%, #f4f9ff 100%);
+}
+
+.markdown-guide-title {
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 0.45rem;
+}
+
+.markdown-guide ol {
+    margin: 0 0 0.6rem 1.2rem;
+    color: #334155;
+    line-height: 1.7;
+}
+
+.markdown-guide-tip {
+    margin-bottom: 0;
+    color: #475569;
+    line-height: 1.7;
+}
+
 .instruction-link {
     color: var(--primary);
     font-weight: 600;
