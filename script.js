@@ -633,11 +633,10 @@ function switchTab(tabName) {
     updateLessonSummaryStrip();
     if (tabName === 'output') {
         const filled = getFilledActivities();
-        const hasRenderedMap = Boolean(document.querySelector('#designMapContainer .design-map-wrapper'));
         if (!filled.length) {
             renderOutputEmptyState();
             closeOutputEditor();
-        } else if (hasRenderedMap) {
+        } else {
             renderMap(filled, getMetaFromInputs());
         }
     }
@@ -1815,77 +1814,132 @@ function showCopyStatus(message, success) {
     }, 2400);
 }
 
-function handleJpgDownload() {
+function wait(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function downloadCanvasAsPng(canvas, fileName) {
+    const link = document.createElement('a');
+    link.href = canvas.toDataURL('image/png');
+    link.download = fileName;
+    link.click();
+}
+
+function addExportClassInClone(clonedDoc, selector) {
+    const clonedTarget = clonedDoc.querySelector(selector);
+    if (clonedTarget) {
+        clonedTarget.classList.add('exporting');
+    }
+}
+
+async function handleJpgDownload() {
+    syncActivitiesFromDom();
+    const filled = getFilledActivities();
+    if (!filled.length) {
+        alert('Please fill in at least one complete activity before downloading the Design Map image.');
+        return;
+    }
+
     const activeTab = document.querySelector('.tab.active')?.getAttribute('data-tab');
     switchTab('output');
+    await wait(100);
 
-    setTimeout(() => {
-        const target = document.querySelector('.print-root');
-        if (!target || !window.html2canvas) return;
+    const target = document.querySelector('.print-root');
+    if (!target || !window.html2canvas || !target.querySelector('.design-map-wrapper')) {
+        if (activeTab) {
+            switchTab(activeTab);
+        }
+        alert('Please generate a design map with at least one activity first.');
+        return;
+    }
 
-        const grid = target.querySelector('.activities-grid');
-        const previous = {
-            targetWidth: target.style.width,
-            gridOverflow: grid ? grid.style.overflow : '',
-            gridWidth: grid ? grid.style.width : ''
-        };
+    const grid = target.querySelector('.activities-grid');
+    const previous = {
+        targetWidth: target.style.width,
+        gridOverflow: grid ? grid.style.overflow : '',
+        gridWidth: grid ? grid.style.width : ''
+    };
 
+    try {
         if (grid) {
             grid.style.overflow = 'visible';
             grid.style.width = `${grid.scrollWidth}px`;
         }
         target.style.width = `${target.scrollWidth}px`;
-
         target.classList.add('exporting');
+
         const width = target.scrollWidth;
         const height = target.scrollHeight;
         const maxSide = 6000;
         const scale = Math.min(3, maxSide / Math.max(width, height));
-        html2canvas(target, {
+        const canvas = await html2canvas(target, {
             backgroundColor: '#ffffff',
             scale,
             width,
             height,
             windowWidth: width,
-            windowHeight: height
-        }).then(canvas => {
-            const link = document.createElement('a');
-            link.href = canvas.toDataURL('image/png');
-            link.download = 'design-map.png';
-            link.click();
-            target.classList.remove('exporting');
-            target.style.width = previous.targetWidth;
-            if (grid) {
-                grid.style.overflow = previous.gridOverflow;
-                grid.style.width = previous.gridWidth;
-            }
-            if (activeTab) {
-                switchTab(activeTab);
-            }
+            windowHeight: height,
+            onclone: clonedDoc => addExportClassInClone(clonedDoc, '.print-root')
         });
-    }, 100);
+        downloadCanvasAsPng(canvas, 'design-map.png');
+    } catch (err) {
+        console.error('Unable to download design map image', err);
+        alert('Unable to download the Design Map image.');
+    } finally {
+        target.classList.remove('exporting');
+        target.style.width = previous.targetWidth;
+        if (grid) {
+            grid.style.overflow = previous.gridOverflow;
+            grid.style.width = previous.gridWidth;
+        }
+        if (activeTab) {
+            switchTab(activeTab);
+        }
+    }
 }
 
-function handleChartsDownload() {
+async function handleChartsDownload() {
+    syncActivitiesFromDom();
+    const filled = getFilledActivities();
+    if (!filled.length) {
+        alert('Please fill in at least one complete activity before downloading the charts.');
+        return;
+    }
+
     const activeTab = document.querySelector('.tab.active')?.getAttribute('data-tab');
     switchTab('charts');
+    updateCharts(filled);
+    await wait(100);
 
-    setTimeout(() => {
-        const target = document.getElementById('chartsDownloadRoot');
-        if (!target || !window.html2canvas) return;
+    const content = document.getElementById('chartsContent');
+    const target = document.getElementById('chartsDownloadRoot');
+    if (!target || !window.html2canvas || content?.hidden) {
+        if (activeTab) {
+            switchTab(activeTab);
+        }
+        alert('Charts are not ready to download yet.');
+        return;
+    }
 
-        const cleanup = preparePieChartsForDownload(target);
-        html2canvas(target, { backgroundColor: '#ffffff', scale: 2 }).then(canvas => {
-            const link = document.createElement('a');
-            link.href = canvas.toDataURL('image/png');
-            link.download = 'design-map-charts.png';
-            link.click();
-            cleanup();
-            if (activeTab) {
-                switchTab(activeTab);
-            }
+    const cleanup = preparePieChartsForDownload(target);
+    try {
+        target.classList.add('exporting');
+        const canvas = await html2canvas(target, {
+            backgroundColor: '#ffffff',
+            scale: 2,
+            onclone: clonedDoc => addExportClassInClone(clonedDoc, '#chartsDownloadRoot')
         });
-    }, 100);
+        downloadCanvasAsPng(canvas, 'design-map-charts.png');
+    } catch (err) {
+        console.error('Unable to download charts image', err);
+        alert('Unable to download the charts image.');
+    } finally {
+        target.classList.remove('exporting');
+        cleanup();
+        if (activeTab) {
+            switchTab(activeTab);
+        }
+    }
 }
 
 async function handleObservationDocxDownload() {
@@ -2564,16 +2618,22 @@ async function buildChartsSlide(pptx, activeTab) {
     if (!window.html2canvas) return;
     switchTab('charts');
 
-    await new Promise(resolve => setTimeout(resolve, 120));
+    await wait(120);
+    const content = document.getElementById('chartsContent');
     const target = document.getElementById('chartsDownloadRoot');
-    if (!target) {
+    if (!target || content?.hidden) {
         if (activeTab) switchTab(activeTab);
         return;
     }
 
     const cleanup = preparePieChartsForDownload(target);
     try {
-        const canvas = await html2canvas(target, { backgroundColor: '#ffffff', scale: 2 });
+        target.classList.add('exporting');
+        const canvas = await html2canvas(target, {
+            backgroundColor: '#ffffff',
+            scale: 2,
+            onclone: clonedDoc => addExportClassInClone(clonedDoc, '#chartsDownloadRoot')
+        });
         const slide = pptx.addSlide();
         const dataUrl = canvas.toDataURL('image/png');
         const slideW = 13.333;
@@ -2587,6 +2647,7 @@ async function buildChartsSlide(pptx, activeTab) {
         const y = (slideH - h) / 2;
         slide.addImage({ data: dataUrl, x, y, w, h });
     } finally {
+        target.classList.remove('exporting');
         cleanup();
         if (activeTab) switchTab(activeTab);
     }

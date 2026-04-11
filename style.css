@@ -776,6 +776,14 @@ textarea {
     animation-delay: var(--delay, 0s);
 }
 
+.exporting.stagger-item,
+.exporting .stagger-item {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+    transition: none !important;
+}
+
 @keyframes contentFade {
     from {
         opacity: 0;
