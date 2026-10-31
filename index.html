@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Design Map Generator</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,                %3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3Cmarker id='brandArrow' markerUnits='userSpaceOnUse' markerWidth='2.2' markerHeight='2.2' refX='2.1' refY='1.1' orient='auto'%3E%3Cpolygon points='0 0, 2.2 1.1, 0 2.2' fill='%23333333'/%3E%3C/marker%3E%3C/defs%3E%3Crect x='0.5' y='0.5' width='63' height='63' rx='14' fill='%23ffffff' stroke='%230b4f6c' stroke-width='1.5'/%3E%3Crect x='7' y='9' width='8' height='44' fill='%23f5f5f5'/%3E%3Cpath d='M7 9H57M7 20H57M7 31H57M7 42H57' stroke='%23e0e0e0' stroke-width='0.8'/%3E%3Crect x='15' y='42' width='10' height='11' fill='%236aced8'/%3E%3Crect x='29.6' y='31' width='10' height='11' fill='%23cc6bff'/%3E%3Crect x='44.2' y='20' width='10' height='11' fill='%23f6bbbf'/%3E%3Cg fill='%232f2f2f'%3E%3Crect x='25' y='42' width='1.6' height='11' rx='0.4'/%3E%3Crect x='39.6' y='31' width='1.6' height='11' rx='0.4'/%3E%3Crect x='54.2' y='20' width='1.6' height='11' rx='0.4'/%3E%3C/g%3E%3Cg fill='none' stroke='%23333333' stroke-width='0.8' stroke-linejoin='round' marker-end='url(%23brandArrow)'%3E%3Cpath d='M25.8 42V36.5H29.5'/%3E%3Cpath d='M40.4 31V25.5H44.1'/%3E%3C/g%3E%3Cpath d='M15 9V53' stroke='%23333333' stroke-width='1.2'/%3E%3Cpath d='M7 9V53H57' fill='none' stroke='%23333333' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E">
     <link rel="stylesheet" href="css2.css">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="design.css">
@@ -14,7 +15,63 @@
 <body>
     <div class="header">
         <div class="header-content">
-            <h1>Design Map Generator</h1>
+            <h1 class="brand">
+                <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+                    <defs>
+                        <marker id="brandArrow" markerUnits="userSpaceOnUse" markerWidth="2.2" markerHeight="2.2" refX="2.1" refY="1.1" orient="auto">
+                            <polygon points="0 0, 2.2 1.1, 0 2.2" fill="#333333"/>
+                        </marker>
+                    </defs>
+                    <!-- White map sheet -->
+                    <rect x="0.5" y="0.5" width="63" height="63" rx="14" fill="#ffffff" stroke="#0f172a" stroke-opacity="0.08"/>
+                    <!-- Social-plane label column (Community, Class, Group, Individual) -->
+                    <rect x="7" y="9" width="8" height="44" fill="#f5f5f5"/>
+                    <g stroke="#6b7280" stroke-width="0.8" stroke-linecap="round">
+                        <path d="M9.6 13.6h3.6M10.6 15.4h2.6"/>
+                        <path d="M9.6 24.6h3.6M10.6 26.4h2.6"/>
+                        <path d="M9.6 35.6h3.6M10.6 37.4h2.6"/>
+                        <path d="M9.6 46.6h3.6M10.6 48.4h2.6"/>
+                    </g>
+                    <!-- Row dividers -->
+                    <path d="M7 9H57M7 20H57M7 31H57M7 42H57" stroke="#e0e0e0" stroke-width="0.8"/>
+                    <!-- Activity 1: Individual row, Activate -->
+                    <rect x="15" y="42" width="10" height="11" fill="#6aced8"/>
+                    <!-- Activity 2: Group row, Promote -->
+                    <rect x="29.6" y="31" width="10" height="11" fill="#cc6bff"/>
+                    <!-- Activity 3: Class row, Monitor -->
+                    <rect x="44.2" y="20" width="10" height="11" fill="#f6bbbf"/>
+                    <!-- Activity text: title, details, tool -->
+                    <g stroke-linecap="round">
+                        <g stroke="#2f2f2f" stroke-opacity="0.75">
+                            <path d="M16.3 44.4h5.2" stroke-width="1.1"/>
+                            <path d="M16.3 46.5h7M16.3 48.1h5.6M16.3 51h4.2" stroke-width="0.7"/>
+                        </g>
+                        <g stroke="#ffffff" stroke-opacity="0.95">
+                            <path d="M30.9 33.4h5.2" stroke-width="1.1"/>
+                            <path d="M30.9 35.5h7M30.9 37.1h5.6M30.9 40h4.2" stroke-width="0.7"/>
+                        </g>
+                        <g stroke="#2f2f2f" stroke-opacity="0.75">
+                            <path d="M45.5 22.4h5.2" stroke-width="1.1"/>
+                            <path d="M45.5 24.5h7M45.5 26.1h5.6M45.5 29h4.2" stroke-width="0.7"/>
+                        </g>
+                    </g>
+                    <!-- Key Application tags on the right edge of each activity -->
+                    <g fill="#2f2f2f">
+                        <rect x="25" y="42" width="1.6" height="11" rx="0.4"/>
+                        <rect x="39.6" y="31" width="1.6" height="11" rx="0.4"/>
+                        <rect x="54.2" y="20" width="1.6" height="11" rx="0.4"/>
+                    </g>
+                    <!-- Elbow arrows from each tag into the next activity -->
+                    <g fill="none" stroke="#333333" stroke-width="0.8" stroke-linejoin="round" marker-end="url(#brandArrow)">
+                        <path d="M25.8 42V36.5H29.5"/>
+                        <path d="M40.4 31V25.5H44.1"/>
+                    </g>
+                    <!-- Axes: label column edge, left edge and time axis -->
+                    <path d="M15 9V53" stroke="#333333" stroke-width="1.2"/>
+                    <path d="M7 9V53H57" fill="none" stroke="#333333" stroke-width="1.6" stroke-linejoin="round"/>
+                </svg>
+                <span class="brand-text">Design Map <span class="brand-suffix">Generator</span></span>
+            </h1>
         </div>
     </div>
 
@@ -96,6 +153,20 @@
         </div>
         <!-- INPUT TAB -->
         <div id="input" class="tab-content active">
+            <div class="saved-versions-bar">
+                <label class="saved-versions-label" for="savedVersionsSelect" data-tooltip="Save up to 5 versions in this browser. Each is named after the Topic and stamped with the date and time.">
+                    Saved Versions
+                    <span class="saved-versions-count" id="savedVersionsCount">0 / 5</span>
+                </label>
+                <select id="savedVersionsSelect" class="saved-versions-select"></select>
+                <button class="btn btn-secondary btn-small" id="loadVersionBtn" type="button" data-tooltip="Loads a version saved in this browser's local storage. Versions are only available on this browser and device.">Load</button>
+                <button class="btn btn-ghost btn-small" id="deleteVersionBtn" type="button">Delete</button>
+                <span class="saved-versions-divider" aria-hidden="true"></span>
+                <button class="btn btn-primary btn-small" id="saveVersionBtn" type="button" data-tooltip="Saves to this browser's local storage only. Clearing your browser cache or site data permanently deletes all saved versions.">Save Current Version</button>
+                <p class="saved-versions-note"><span>Stored in this browser's local storage only. Clearing your browser cache <strong>permanently deletes all saved versions</strong>.</span></p>
+                <p class="saved-versions-tip" id="savedVersionsTip" hidden><span>Limit of 5 reached. Choose a version in the dropdown and click <strong>Delete</strong> before saving a new one.</span></p>
+            </div>
+
             <div class="section">
                 <h2 class="section-title">Overview</h2>
                 <div class="form-group">
@@ -112,7 +183,7 @@
                 </div>
                 <div class="form-group">
                     <label for="duration">Duration (minutes)</label>
-                    <input type="number" id="duration" value="60">
+                    <input type="number" id="duration" value="60" min="0" step="any">
                 </div>
                 <div class="form-group">
                     <label for="learningOutcomes">Learning outcomes</label>
@@ -152,7 +223,7 @@
             <div class="action-buttons">
                 <button class="btn btn-primary" id="generateBtn">Generate Design Map</button>
                 <button class="btn btn-ghost" id="clearBtn">Clear All</button>
-                <span class="inline-note">Your inputs are temporarily saved in this browser. Use “Clear All” to delete the saved data.</span>
+                <span class="inline-note">Your inputs are temporarily saved in this browser. Use “Clear All” to delete the current inputs (your Saved Versions are kept).</span>
                 <span class="save-indicator" id="saveIndicator" aria-live="polite">Saved</span>
             </div>
         </div>
@@ -182,21 +253,29 @@
                     <article class="howto-step">
                         <div class="howto-step-number">2</div>
                         <div class="howto-step-body">
-                            <h4>Markdown Input (with AI chatbot assistance)</h4>
-                            <p>Use this page only if you want AI help. Copy the sample prompt, ask your chatbot to return the lesson in the exact markdown format shown, paste the markdown into the box, then click <strong>Apply Markdown</strong>.</p>
+                            <h4>Saving your work</h4>
+                            <p>Your inputs autosave in this browser. To keep up to 5 copies, click <strong>Save Current Version</strong> at the top of the Input page. Pick a copy from the dropdown to <strong>Load</strong> or <strong>Delete</strong> it. Copies are stored in this browser's local storage, so clearing your browser cache deletes them permanently.</p>
                         </div>
                     </article>
 
                     <article class="howto-step">
                         <div class="howto-step-number">3</div>
                         <div class="howto-step-body">
-                            <h4>Design Map</h4>
-                            <p>Review the generated lesson flow here. You can edit activities from this page if needed, then download the Design Map as an image or editable PPTX.</p>
+                            <h4>Markdown Input (with AI chatbot assistance)</h4>
+                            <p>Use this page only if you want AI help. Copy the sample prompt, ask your chatbot to return the lesson in the exact markdown format shown, paste the markdown into the box, then click <strong>Apply Markdown</strong>.</p>
                         </div>
                     </article>
 
                     <article class="howto-step">
                         <div class="howto-step-number">4</div>
+                        <div class="howto-step-body">
+                            <h4>Design Map</h4>
+                            <p>Click a card and edit its fields. Choose Confirm Changes to Existing Activity to update that activity, or Add as New Activity to insert a separate activity after it. Both actions require all compulsory fields. Close discards unconfirmed edits. Confirmed changes appear in both Input and the Design Map. Download the map as an image or editable PPTX when ready.</p>
+                        </div>
+                    </article>
+
+                    <article class="howto-step">
+                        <div class="howto-step-number">5</div>
                         <div class="howto-step-body">
                             <h4>Charts</h4>
                             <p>Use the charts to review how lesson time is distributed across interaction types, active learning processes, and technology use. Download the charts if you want a record of the reflection view.</p>
@@ -204,7 +283,7 @@
                     </article>
 
                     <article class="howto-step">
-                        <div class="howto-step-number">5</div>
+                        <div class="howto-step-number">6</div>
                         <div class="howto-step-body">
                             <h4>Lesson Plan Prompt Generator</h4>
                             <p>Copy the generated prompt and paste it into the <strong>Lesson Collaborator Chatbot (LCC)</strong> on AIBots at <a class="instruction-link" href="https://go.gov.sg/lcc-aibots" target="_blank" rel="noopener noreferrer">https://go.gov.sg/lcc-aibots</a> to generate a fuller lesson plan from the lesson data already entered in the app.</p>
@@ -212,7 +291,7 @@
                     </article>
 
                     <article class="howto-step">
-                        <div class="howto-step-number">6</div>
+                        <div class="howto-step-number">7</div>
                         <div class="howto-step-body">
                             <h4>Lesson Observation Form</h4>
                             <p>Use this page to review and edit the observation form inside the app. When the wording is ready, download the editable DOCX version.</p>
@@ -242,7 +321,7 @@
                     </ol>
                     <p class="markdown-guide-tip">Tip: Keep the headings, field names, and dropdown values exactly as shown.</p>
                 </div>
-                <textarea id="markdownInput" class="markdown-box" placeholder="Paste your markdown here..."></textarea>
+                <textarea id="markdownInput" class="markdown-box" aria-label="Lesson Markdown input" placeholder="Paste your markdown here..."></textarea>
             </div>
             <div class="section">
                 <h2 class="section-title">Notes</h2>
@@ -352,7 +431,7 @@ Tech Tool:</pre>
                 <div class="validation-warning" id="outputWarning" aria-live="polite"></div>
                 <div class="section-header section-header-right page-actions">
                     <button class="btn btn-secondary" id="downloadJpgBtn">Download Design Map Image</button>
-                    <button class="btn btn-secondary" id="downloadPptxBtn" title="Don't exceed 6 activities for PPTX download.">Download Design Map (Editable PPTX)</button>
+                    <button class="btn btn-secondary" id="downloadPptxBtn" data-tooltip="Don't exceed 6 activities for PPTX download.">Download Design Map (Editable PPTX)</button>
                 </div>
                 <div id="designMapContainer" class="print-root">
                     <div class="empty-state empty-state-rich stagger-item" style="--delay:0.04s;">
@@ -363,37 +442,40 @@ Tech Tool:</pre>
                     </div>
                 </div>
             </div>
-            <aside class="output-editor" id="outputEditor" aria-hidden="true">
+            <aside class="output-editor" id="outputEditor" aria-hidden="true" inert aria-label="Activity editor">
                 <div class="output-editor-header">
-                    <h3>Edit Activity <span id="outputEditorTitle"></span></h3>
+                    <h3><span id="outputEditorModeTitle">Edit Activity</span> <span id="outputEditorTitle"></span></h3>
                     <button class="btn btn-ghost output-editor-close" id="outputEditorClose" type="button">Close</button>
                 </div>
+                <p id="outputEditorHint" class="field-hint">Edits apply only when confirmed. Confirm changes to the existing activity, or add these fields as a new activity. Close discards unconfirmed edits.</p>
+                <div id="outputEditorError" class="validation-warning" role="alert"></div>
                 <div class="form-group">
-                    <label>Interaction Type <span class="required" title="Compulsory field">*</span></label>
-                    <select id="editorInteraction"></select>
+                    <label for="editorInteraction">Interaction Type <span class="required" data-tooltip="Compulsory field">*</span></label>
+                    <select id="editorInteraction" aria-required="true"></select>
                 </div>
                 <div class="form-group">
-                    <label>Active Learning Process <span class="required" title="Compulsory field">*</span> <span class="field-hint">What students are mainly doing in this part of the lesson</span></label>
-                    <select id="editorAlp"></select>
+                    <label for="editorAlp">Active Learning Process <span class="required" data-tooltip="Compulsory field">*</span> <span class="field-hint">What students are mainly doing in this part of the lesson</span></label>
+                    <select id="editorAlp" aria-required="true"></select>
                 </div>
                 <div class="form-group">
-                    <label>Time (mins)</label>
-                    <input type="number" id="editorTime" min="0">
+                    <label for="editorTime">Time (mins)</label>
+                    <input type="number" id="editorTime" min="0" step="any">
                 </div>
                 <div class="form-group">
-                    <label>Activity Details <span class="required" title="Compulsory field">*</span></label>
-                    <textarea id="editorDetails" maxlength="115"></textarea>
+                    <label for="editorDetails">Activity Details <span class="required" data-tooltip="Compulsory field">*</span></label>
+                    <textarea id="editorDetails" maxlength="115" aria-required="true"></textarea>
                 </div>
                 <div class="form-group">
-                    <label>Key Application of Technology <span class="field-hint">How the technology strengthens learning in this activity</span></label>
+                    <label for="editorKeyApp">Key Application of Technology <span class="field-hint">How the technology strengthens learning in this activity</span></label>
                     <select id="editorKeyApp"></select>
                 </div>
                 <div class="form-group">
-                    <label>Tech Tool</label>
+                    <label for="editorTech">Tech Tool</label>
                     <input type="text" id="editorTech" maxlength="25">
                 </div>
                 <div class="output-editor-actions">
-                    <button class="btn btn-secondary" id="outputEditorAdd" type="button">Add Activity</button>
+                    <button class="btn btn-primary" id="outputEditorConfirm" type="button">Confirm Changes to Existing Activity</button>
+                    <button class="btn btn-secondary" id="outputEditorAdd" type="button">Add as New Activity</button>
                     <button class="btn btn-danger" id="outputEditorDelete" type="button">Delete Activity</button>
                 </div>
             </aside>
@@ -410,6 +492,12 @@ Tech Tool:</pre>
                 </div>
                 <div class="section-header section-header-right page-actions">
                     <button class="btn btn-secondary" id="downloadChartsBtn">Download Charts</button>
+                </div>
+                <div id="chartsEmptyState" class="empty-state empty-state-rich">
+                    <div class="empty-icon">Charts</div>
+                    <h3>No Charts Yet</h3>
+                    <p>Complete at least one activity on Input to see the lesson's time distribution.</p>
+                    <button class="btn btn-primary" type="button" data-switch-tab="input">Open Input</button>
                 </div>
                 <div id="chartsContent" hidden>
                 <div id="chartsDownloadRoot">
@@ -490,7 +578,7 @@ Tech Tool:</pre>
                     <div class="chart-card stagger-item" style="--delay:0.16s;">
                         <div class="chart-header">
                             <h3>Key Application of Technology</h3>
-                            <p>Time distribution (in minutes)</p>
+                            <p>Time distribution for activities with a selected application (in minutes)</p>
                         </div>
                         <div class="chart-body">
                             <div class="pie-chart keyapp-chart" data-chart="keyapp">
@@ -607,17 +695,14 @@ Tech Tool:</pre>
                     <button class="btn btn-primary" id="copyPromptBtn" type="button">Copy prompt</button>
                 </div>
                 <div class="markdown-panel">
-                    <div class="markdown-toolbar">
-                        <span class="copy-status" id="copyStatus" aria-live="polite"></span>
-                    </div>
-                    <textarea id="promptMarkdown" class="markdown-box" readonly></textarea>
+                    <textarea id="promptMarkdown" class="markdown-box" aria-label="Generated lesson plan prompt" readonly></textarea>
                 </div>
             </div>
         </div>
     </div>
     <footer class="page-footer">
         <div class="page-footer-content">
-            Created by Mathew Lim. Updated on 11 April 2026. Inspired by and Adapted from ETD's original Design Map Generrator and Gabriel Cheow's protoypes
+            Created by Mathew Lim. Updated on 31 October 2026. Inspired by and Adapted from ETD's original Design Map Generrator and Gabriel Cheow's protoypes
         </div>
     </footer>
 </body>

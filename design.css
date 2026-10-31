@@ -1,15 +1,16 @@
 /* Design Map Styles */
 .design-map-wrapper {
     background: white;
-    border-radius: 16px;
+    border-radius: var(--radius-lg, 16px);
+    border: 1px solid var(--border, #d5dee8);
     padding: 2rem;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+    box-shadow: var(--shadow-md, 0 8px 32px rgba(0,0,0,0.08));
     width: 100%;
 }
 
 .design-map {
     display: grid;
-    grid-template-columns: 150px 1fr;
+    grid-template-columns: 150px minmax(0, 1fr);
     grid-template-rows: repeat(4, var(--row-height));
     gap: 0;
     border-left: 3px solid #333;
@@ -17,7 +18,7 @@
     margin-top: 2rem;
     min-height: 500px;
     --slot-width: 360px;
-    --row-height: 170px;
+    --row-height: 210px;
 }
 
 .social-level {
@@ -47,6 +48,7 @@
     grid-template-rows: repeat(4, var(--row-height));
     align-items: stretch;
     min-height: calc(var(--row-height) * 4);
+    min-width: 0;
     overflow-x: auto;
     background-image: linear-gradient(to bottom, #e0e0e0 1px, transparent 1px);
     background-size: 100% var(--row-height);
@@ -54,9 +56,9 @@
 }
 
 .activities-grid.fill-width {
-    grid-template-columns: repeat(var(--activity-count, 1), minmax(0, 1fr));
+    grid-template-columns: repeat(var(--activity-count, 1), minmax(240px, 1fr));
     width: 100%;
-    overflow-x: hidden;
+    overflow-x: auto;
 }
 
 .activity-slot {
@@ -69,21 +71,37 @@
 
 .activity-box {
     padding: 0.7rem 1.35rem 0.95rem 0.85rem;
-    border-radius: 4px;
+    border-radius: 6px;
     min-width: 200px;
     max-width: none;
     width: calc(100% - 20px);
     display: flex;
     flex-direction: column;
     position: relative;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.1), 0 6px 14px -6px rgba(15, 23, 42, 0.22);
+    transition: box-shadow 0.18s ease;
     height: 100%;
     z-index: 2;
     cursor: grab;
 }
 
+.activity-box:hover {
+    box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08), 0 2px 4px rgba(15, 23, 42, 0.1), 0 12px 22px -8px rgba(15, 23, 42, 0.3);
+}
+
+.activity-box:focus-visible,
+.activities-grid:focus-visible {
+    outline: 3px solid var(--primary);
+    outline-offset: -3px;
+}
+
 .activity-box.dragging {
     cursor: grabbing;
+}
+
+.exporting .activity-box,
+.exporting .activity-box:hover {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
 .activity-box {
@@ -91,7 +109,7 @@
 }
 
 .activity-box.activate { background: var(--activate); }
-.activity-box.promote { background: var(--promote); color: white; }
+.activity-box.promote { background: var(--promote); color: #2f2f2f; }
 .activity-box.facilitate { background: var(--facilitate); }
 .activity-box.monitor { background: var(--monitor); }
 
@@ -207,26 +225,27 @@
 }
 
 .legend-table {
-    border: 2px solid #333;
-    border-radius: 8px;
+    border: 1px solid var(--border-strong, #c3d0dd);
+    border-radius: var(--radius-md, 12px);
     overflow: hidden;
     margin-top: 2rem;
+    box-shadow: var(--shadow-xs, none);
 }
 
 .legend-header {
-    background: #f5f5f5;
-    padding: 0.75rem;
+    background: #f8fafc;
+    padding: 0.75rem 1rem;
     display: flex;
     justify-content: space-between;
     font-weight: 700;
-    border-bottom: 2px solid #333;
+    border-bottom: 1px solid var(--border-strong, #c3d0dd);
     color: #2f2f2f;
 }
 
 .legend-row {
     display: flex;
-    padding: 0.75rem;
-    border-bottom: 1px solid #ddd;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-subtle, #e4ebf2);
     align-items: center;
 }
 
@@ -238,7 +257,8 @@
     width: 30px;
     height: 30px;
     margin-right: 1rem;
-    border-radius: 4px;
+    border-radius: 6px;
+    box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.1);
 }
 
 
@@ -253,6 +273,6 @@
 }
 
 @media (max-width: 768px) {
-    .design-map { grid-template-columns: 100px 1fr; }
+    .design-map { grid-template-columns: 100px minmax(0, 1fr); }
     .activities-grid { --slot-width: 240px; }
 }

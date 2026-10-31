@@ -1,10 +1,23 @@
 let activities = [];
 let activityCounter = 0;
 const STORAGE_KEY = 'design-map-state-v1';
+const SAVED_VERSIONS_KEY = 'design-map-saved-versions-v1';
+const MAX_SAVED_VERSIONS = 5;
+const FEEDBACK_DURATION = 2500;
+const FEEDBACK_ICONS = {
+    success: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 10.5l3.5 3.5 7.5-8"/></svg>',
+    warning: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M10 5v6"/><path d="M10 15h.01"/></svg>',
+    error: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l8 8"/><path d="M14 6l-8 8"/></svg>'
+};
+const TOAST_TITLES = {
+    success: 'Done',
+    warning: 'Heads up',
+    error: 'Something went wrong'
+};
 let saveIndicatorTimer = null;
 let selectedActivityId = null;
-let outputEditorAddMode = false;
 let observationForm = null;
+let cancelActivityDrag = null;
 
 const interactionTypes = [
     { value: 'community', label: 'Community (Student - Community)' },
@@ -47,7 +60,11 @@ function init() {
     if (!restored) {
         addActivity();
     }
+    // Safety net: anything that still calls alert() (e.g. a bundled library) shows an in-app message instead.
+    window.alert = message => showToast(String(message ?? ''), 'warning', null, 'Notice');
     setupEventListeners();
+    initTooltips();
+    renderSavedVersions();
     initOutputEditor();
     updateValidationWarnings();
     updateLessonSummaryStrip();
@@ -55,18 +72,64 @@ function init() {
 }
 
 function setupEventListeners() {
+    window.addEventListener('resize', () => {
+        if (document.getElementById('output')?.classList.contains('active')) {
+            updateArrowsFromDom([...getFilledActivities()].sort((a, b) => a.id - b.id));
+        }
+    });
+    document.querySelector('.tabs')?.setAttribute('role', 'tablist');
+    document.querySelector('.tabs')?.setAttribute('aria-label', 'Lesson design pages');
     document.querySelectorAll('.tab').forEach(tab => {
+        const tabName = tab.dataset.tab;
+        tab.id = `tab-${tabName}`;
+        tab.setAttribute('role', 'tab');
+        tab.setAttribute('aria-controls', tabName);
+        tab.setAttribute('aria-selected', String(tab.classList.contains('active')));
+        tab.tabIndex = tab.classList.contains('active') ? 0 : -1;
+        const panel = document.getElementById(tabName);
+        panel?.setAttribute('role', 'tabpanel');
+        panel?.setAttribute('aria-labelledby', tab.id);
         tab.addEventListener('click', function () {
             switchTab(this.getAttribute('data-tab'));
         });
+        tab.addEventListener('keydown', e => {
+            const tabs = Array.from(document.querySelectorAll('.tab'));
+            const index = tabs.indexOf(tab);
+            let next;
+            if (e.key === 'ArrowRight') next = tabs[(index + 1) % tabs.length];
+            if (e.key === 'ArrowLeft') next = tabs[(index - 1 + tabs.length) % tabs.length];
+            if (e.key === 'Home') next = tabs[0];
+            if (e.key === 'End') next = tabs[tabs.length - 1];
+            if (!next) return;
+            e.preventDefault();
+            switchTab(next.dataset.tab);
+            next.focus();
+        });
     });
 
-    document.getElementById('addActivityBtn').addEventListener('click', addActivity);
+    document.getElementById('addActivityBtn').addEventListener('click', e => {
+        addActivity();
+        saveState();
+        giveFeedback(e.currentTarget, 'Activity added', `Activity ${activities.length} added.`);
+    });
     document.getElementById('generateBtn').addEventListener('click', generateMap);
-    document.getElementById('clearBtn').addEventListener('click', () => {
-        if (confirm('Clear all data?')) {
-            localStorage.removeItem(STORAGE_KEY);
-            location.reload();
+    document.getElementById('saveVersionBtn')?.addEventListener('click', saveCurrentVersion);
+    document.getElementById('loadVersionBtn')?.addEventListener('click', loadSelectedVersion);
+    document.getElementById('deleteVersionBtn')?.addEventListener('click', deleteSelectedVersion);
+    document.getElementById('clearBtn').addEventListener('click', async () => {
+        const confirmed = await showConfirmDialog({
+            title: 'Clear all inputs?',
+            message: 'This empties the lesson overview and all activities on the Input page. Your Saved Versions will be kept.',
+            confirmLabel: 'Clear All',
+            tone: 'danger'
+        });
+        if (confirmed) {
+            try {
+                localStorage.removeItem(STORAGE_KEY);
+                location.reload();
+            } catch (err) {
+                giveFeedback(document.getElementById('clearBtn'), 'Not cleared', 'Browser storage is blocked. The current lesson has been kept.', 'error');
+            }
         }
     });
     document.getElementById('downloadJpgBtn').addEventListener('click', handleJpgDownload);
@@ -112,7 +175,11 @@ function setupEventListeners() {
     }
 
     document.querySelectorAll('#input input, #input textarea, #input select').forEach(el => {
-        el.addEventListener('input', saveState);
+        if (el.closest('.saved-versions-bar')) return;
+        el.addEventListener('input', () => {
+            if (el.id === 'duration' && Number(el.value) < 0) el.value = '0';
+            saveState();
+        });
         el.addEventListener('change', saveState);
     });
 
@@ -126,38 +193,69 @@ function setupEventListeners() {
     });
 }
 
-function copyMarkdownPrompt() {
+function copyMarkdownPrompt(e) {
+    const button = e?.currentTarget;
     const sample = document.getElementById('markdownPromptSample');
     if (!sample) return;
     const text = sample.textContent || '';
     if (!text.trim()) return;
+    const onSuccess = () => giveFeedback(button, 'Copied', 'Prompt copied to clipboard.');
+    const onFailure = () => giveFeedback(button, 'Copy failed', 'Unable to copy. Please select and copy the prompt manually.', 'error');
     if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text).catch(() => {});
+        navigator.clipboard.writeText(text).then(onSuccess).catch(onFailure);
         return;
     }
     const temp = document.createElement('textarea');
     temp.value = text;
     document.body.appendChild(temp);
     temp.select();
+    let successful = false;
     try {
-        document.execCommand('copy');
+        successful = document.execCommand('copy');
     } catch (err) {}
     document.body.removeChild(temp);
+    if (successful) {
+        onSuccess();
+    } else {
+        onFailure();
+    }
 }
 
-function pasteMarkdownSample() {
+function pasteMarkdownSample(e) {
     const target = document.getElementById('markdownInput');
     const sample = document.getElementById('markdownSampleTemplate');
     if (!target || !sample) return;
     target.value = sample.textContent || '';
     target.focus();
+    giveFeedback(e?.currentTarget, 'Pasted', 'Sample format pasted into the markdown box.');
 }
 
-function applyMarkdownInput() {
+function applyMarkdownInput(e) {
+    const button = e?.currentTarget;
     const input = document.getElementById('markdownInput');
     if (!input) return;
+    if (!(input.value || '').trim()) {
+        giveFeedback(button, 'Nothing to apply', 'Paste your markdown into the box first.', 'warning');
+        return;
+    }
     const parsed = parseMarkdown(input.value || '');
-    if (!parsed) return;
+    if (!parsed.activities.length) {
+        giveFeedback(button, 'Not applied', 'No activities were found. Use the sample format, including a ## Activity heading for each activity. Your current lesson has been kept.', 'error');
+        return;
+    }
+    if (!isValidMinutes(parsed.meta.duration ?? '')) {
+        giveFeedback(button, 'Not applied', 'Duration must be a non-negative number of minutes, such as 80 or 2.5. Your current lesson has been kept.', 'error');
+        return;
+    }
+    const invalidActivities = parsed.activities.filter(activity =>
+        !activity.interaction || !activity.alp || !activity.details.trim() ||
+        activity.details.length > 115 || activity.tech.length > 25 ||
+        !isValidMinutes(activity.time)
+    );
+    if (invalidActivities.length) {
+        giveFeedback(button, 'Not applied', 'Check each activity: use the listed Interaction Type and Active Learning Process, provide Activity Details (up to 115 characters), keep Tech Tool within 25 characters, and use non-negative minutes. Your current lesson has been kept.', 'error');
+        return;
+    }
 
     const meta = parsed.meta;
     if (meta.topic !== undefined) document.getElementById('topic').value = meta.topic;
@@ -178,6 +276,7 @@ function applyMarkdownInput() {
     saveState();
     updateValidationWarnings();
     switchTab('input');
+    giveFeedback(button, 'Applied', `Markdown applied: ${parsed.activities.length} ${parsed.activities.length === 1 ? 'activity' : 'activities'} loaded into Input.`);
 }
 
 function parseMarkdown(text) {
@@ -197,12 +296,16 @@ function parseMarkdown(text) {
     };
 
     lines.forEach(rawLine => {
-        const line = rawLine.trim();
+        // A single trailing backslash is a Markdown hard break, not part of a
+        // dropdown value or number. Keep interior and doubled backslashes.
+        const line = rawLine.trim().replace(/(^|[^\\])\\$/, '$1').trimEnd();
         if (!line) return;
         if (line.startsWith('//')) return;
+        if (/^(?:\x60{3,}|~{3,})/.test(line)) return;
         if (line.startsWith('#')) {
-            if (/^##\s*Activity/i.test(line)) {
+            if (/^#{2,6}\s*[*_]*Activity\b/i.test(line)) {
                 pushActivity();
+                currentMetaField = '';
                 currentActivity = {
                     interaction: '',
                     alp: '',
@@ -215,7 +318,7 @@ function parseMarkdown(text) {
             return;
         }
 
-        const cleanedLine = line.replace(/^-\s+/, '');
+        const cleanedLine = line.replace(/^[-*+]\s+/, '');
         const colonIndex = cleanedLine.indexOf(':');
         if (colonIndex === -1) {
             if (currentActivity && currentField === 'details') {
@@ -226,9 +329,17 @@ function parseMarkdown(text) {
             return;
         }
 
-        const key = cleanedLine.slice(0, colonIndex).trim().toLowerCase();
+        const rawKey = cleanedLine.slice(0, colonIndex).trim();
+        const key = rawKey.replace(/^[*_\x60]+|[*_\x60]+$/g, '').toLowerCase();
         let value = cleanedLine.slice(colonIndex + 1).trim();
+        // AI responses commonly put the colon inside a bold field label.
+        const marker = rawKey.match(/^(\*\*|__|\*|_|\x60)/)?.[0];
+        if (marker && !rawKey.endsWith(marker) && value.startsWith(marker)) {
+            value = value.slice(marker.length).trim();
+        }
+        value = value.replace(/^(\*\*|__|\*|_|\x60)(.*?)\1$/, '$2');
         value = value.split(' //')[0].trim();
+        const previousMetaField = currentMetaField;
         currentMetaField = '';
 
         if (currentActivity) {
@@ -259,8 +370,8 @@ function parseMarkdown(text) {
                     currentField = '';
                     break;
                 default:
-                    if (currentField === 'details' && value) {
-                        currentActivity.details = `${currentActivity.details} ${value}`.trim();
+                    if (currentField === 'details') {
+                        currentActivity.details = (currentActivity.details + ' ' + line).trim();
                     }
                     break;
             }
@@ -297,6 +408,10 @@ function parseMarkdown(text) {
                 meta.techIntegration = mapTechIntegration(value);
                 break;
             default:
+                if (previousMetaField) {
+                    meta[previousMetaField] = (meta[previousMetaField] + ' ' + line).trim();
+                    currentMetaField = previousMetaField;
+                }
                 break;
         }
     });
@@ -344,9 +459,28 @@ function mapTechIntegration(value) {
     return 'optional';
 }
 
+function isValidMinutes(value) {
+    const text = String(value).trim();
+    return text === '' || (
+        /^(?:\d+(?:\.\d+)?|\.\d+)(?:e[+-]?\d+)?$/i.test(text) &&
+        Number.isFinite(Number(text))
+    );
+}
+
+function activityMinutes(activity) {
+    const value = Number(activity.time);
+    return Number.isFinite(value) && value >= 0 ? value : 0;
+}
+
 function initOutputEditor() {
     const editor = document.getElementById('outputEditor');
     if (!editor) return;
+    editor.addEventListener('keydown', e => {
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            closeOutputEditor();
+        }
+    });
 
     const interactionSelect = document.getElementById('editorInteraction');
     const alpSelect = document.getElementById('editorAlp');
@@ -366,6 +500,7 @@ function initOutputEditor() {
     closeBtn?.addEventListener('click', closeOutputEditor);
     const addBtn = document.getElementById('outputEditorAdd');
     addBtn?.addEventListener('click', handleEditorAddActivity);
+    document.getElementById('outputEditorConfirm')?.addEventListener('click', handleEditorConfirmChanges);
     const deleteBtn = document.getElementById('outputEditorDelete');
     deleteBtn?.addEventListener('click', handleEditorDeleteActivity);
 
@@ -389,7 +524,8 @@ function addActivity(activityData = {}) {
         time: '5',
         details: '',
         tech: '',
-        ...activityData
+        ...activityData,
+        id: activityCounter
     };
     activities.push(activity);
 
@@ -417,7 +553,7 @@ function addActivity(activityData = {}) {
                     </div>
                     <div class="form-group">
                         <label>Time (mins)</label>
-                        <input type="number" min="0" data-id="${activityCounter}" data-field="time" value="5" placeholder="5">
+                        <input type="number" min="0" step="any" data-id="${activityCounter}" data-field="time" value="5" placeholder="5">
                     </div>
                 </div>
                 <div class="form-group activity-extra">
@@ -444,6 +580,7 @@ function addActivity(activityData = {}) {
         </div>
     `;
     container.appendChild(div);
+    labelActivityFields(div);
     div.querySelectorAll('[data-field]').forEach(field => {
         const key = field.dataset.field;
         if (activity[key] !== undefined) {
@@ -455,6 +592,23 @@ function addActivity(activityData = {}) {
     updateLccPrompt();
 }
 
+function labelActivityFields(item) {
+    item.querySelectorAll('[data-field]').forEach(field => {
+        field.id = `activity-${item.dataset.id}-${field.dataset.field}`;
+        const group = field.closest('.form-group');
+        const label = group?.querySelector('label');
+        if (label) label.htmlFor = field.id;
+        if (['interaction', 'alp', 'details'].includes(field.dataset.field)) {
+            field.setAttribute('aria-required', 'true');
+        }
+        const counter = group?.querySelector('.char-counter');
+        if (counter) {
+            counter.id = `${field.id}-counter`;
+            field.setAttribute('aria-describedby', counter.id);
+        }
+    });
+}
+
 function handleActivityChange(e) {
     const id = parseInt(e.target.dataset.id, 10);
     const field = e.target.dataset.field;
@@ -463,11 +617,9 @@ function handleActivityChange(e) {
     const activity = activities.find(a => a.id === id);
     if (activity) {
         if (field === 'time') {
-            const value = parseInt(e.target.value, 10);
+            const value = Number(e.target.value);
             if (!Number.isNaN(value) && value < 0) {
                 e.target.value = 0;
-                activity[field] = '0';
-                return;
             }
         }
         activity[field] = e.target.value;
@@ -503,20 +655,24 @@ function handleActivityClick(e) {
     activities = activities.filter(a => a.id !== id);
     renumberActivities();
     saveState();
+    showToast(`Activity ${id} has been removed and the rest renumbered.`, 'success', null, 'Activity deleted');
 }
 
 function renumberActivities() {
     const items = Array.from(document.querySelectorAll('.activity-item'));
+    // Snapshot IDs before assigning new ones: insertion can reuse an ID that a
+    // later item still needs to look up.
+    const previousActivities = new Map(activities.map(activity => [activity.id, activity]));
     activities = items.map((item, index) => {
         const oldId = parseInt(item.dataset.id, 10);
-        const activity = activities.find(a => a.id === oldId) || {
+        const activity = { ...(previousActivities.get(oldId) || {
             interaction: '',
             alp: '',
             keyApp: '',
             time: '',
             details: '',
             tech: ''
-        };
+        }) };
         const newId = index + 1;
         activity.id = newId;
 
@@ -527,6 +683,7 @@ function renumberActivities() {
         item.querySelectorAll('[data-id]').forEach(el => {
             el.dataset.id = newId;
         });
+        labelActivityFields(item);
 
         return activity;
     });
@@ -534,8 +691,8 @@ function renumberActivities() {
     activityCounter = activities.length;
 }
 
-function saveState() {
-    const state = {
+function getCurrentState() {
+    return {
         meta: {
             topic: document.getElementById('topic')?.value || '',
             level: document.getElementById('level')?.value || '',
@@ -549,29 +706,64 @@ function saveState() {
         activities,
         observationForm
     };
+}
 
+function saveState() {
     try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(getCurrentState()));
         showSaveIndicator();
-        updateLessonSummaryStrip();
-        updateLccPrompt();
-        updateValidationWarnings();
     } catch (err) {
         console.warn('Unable to save design map state', err);
+        clearTimeout(saveIndicatorTimer);
+        const indicator = document.getElementById('saveIndicator');
+        if (indicator) {
+            indicator.textContent = 'Not saved — browser storage is full or blocked';
+            indicator.classList.add('visible');
+        }
     }
+    updateLessonSummaryStrip();
+    updateLccPrompt();
+    updateValidationWarnings();
 }
 
 function loadState() {
     try {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (!raw) return false;
-        const state = JSON.parse(raw);
+        return applyState(JSON.parse(raw));
+    } catch (err) {
+        console.warn('Unable to restore design map state', err);
+        return false;
+    }
+}
+
+function applyState(state) {
+    try {
         if (!state || !Array.isArray(state.activities)) return false;
+        // Check the complete snapshot before replacing any current inputs.
+        const textFields = ['interaction', 'alp', 'keyApp', 'details', 'tech'];
+        const isText = value => value == null || typeof value === 'string';
+        const isTime = value => isText(value) || (typeof value === 'number' && Number.isFinite(value));
+        if (state.activities.some(activity =>
+            !activity || typeof activity !== 'object' || Array.isArray(activity) ||
+            textFields.some(field => !isText(activity[field])) || !isTime(activity.time)
+        )) return false;
+        if (state.meta != null && (
+            typeof state.meta !== 'object' || Array.isArray(state.meta) ||
+            ['topic', 'level', 'studentProfile', 'learningOutcomes', 'prerequisiteKnowledge', 'learningIssues', 'techIntegration']
+                .some(field => !isText(state.meta[field])) || !isTime(state.meta.duration)
+        )) return false;
+        const restoredActivities = state.activities.map(activity => ({
+            ...activity,
+            time: String(activity.time ?? ''),
+            ...Object.fromEntries(textFields.map(field => [field, activity[field] ?? '']))
+        }));
+        const restoredObservation = normalizeObservationFormState(state.observationForm);
 
         document.getElementById('topic').value = state.meta?.topic || '';
         document.getElementById('level').value = state.meta?.level || '';
         document.getElementById('studentProfile').value = state.meta?.studentProfile || '';
-        document.getElementById('duration').value = state.meta?.duration || '';
+        document.getElementById('duration').value = state.meta?.duration ?? '';
         document.getElementById('learningOutcomes').value = state.meta?.learningOutcomes || '';
         document.getElementById('prerequisiteKnowledge').value = state.meta?.prerequisiteKnowledge || '';
         document.getElementById('learningIssues').value = state.meta?.learningIssues || '';
@@ -582,10 +774,10 @@ function loadState() {
         const container = document.getElementById('activitiesContainer');
         container.innerHTML = '';
 
-        state.activities.forEach(activity => {
+        restoredActivities.forEach(activity => {
             addActivity(activity);
         });
-        observationForm = normalizeObservationFormState(state.observationForm);
+        observationForm = restoredObservation;
         updateLessonSummaryStrip();
         updateLccPrompt();
 
@@ -599,6 +791,7 @@ function loadState() {
 function showSaveIndicator() {
     const indicator = document.getElementById('saveIndicator');
     if (!indicator) return;
+    indicator.textContent = 'Saved';
     indicator.classList.add('visible');
     if (saveIndicatorTimer) {
         clearTimeout(saveIndicatorTimer);
@@ -606,6 +799,363 @@ function showSaveIndicator() {
     saveIndicatorTimer = setTimeout(() => {
         indicator.classList.remove('visible');
     }, 2000);
+}
+
+function getSavedVersions() {
+    try {
+        const raw = localStorage.getItem(SAVED_VERSIONS_KEY);
+        const list = raw ? JSON.parse(raw) : [];
+        return Array.isArray(list)
+            ? list.filter(version => version && typeof version === 'object' && typeof version.id === 'string')
+            : [];
+    } catch (err) {
+        console.warn('Unable to read saved versions', err);
+        return [];
+    }
+}
+
+function setSavedVersions(list) {
+    localStorage.setItem(SAVED_VERSIONS_KEY, JSON.stringify(list));
+}
+
+function formatSavedAt(iso) {
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleString('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function renderSavedVersions(selectedId) {
+    const select = document.getElementById('savedVersionsSelect');
+    if (!select) return;
+    const versions = getSavedVersions();
+    const keepId = selectedId || select.value;
+
+    const count = document.getElementById('savedVersionsCount');
+    if (count) count.textContent = `${versions.length} / ${MAX_SAVED_VERSIONS}`;
+    const tip = document.getElementById('savedVersionsTip');
+    if (tip) tip.hidden = versions.length < MAX_SAVED_VERSIONS;
+
+    if (!versions.length) {
+        select.innerHTML = '<option value="">No saved versions yet</option>';
+    } else {
+        select.innerHTML = versions.map(version => `
+            <option value="${escapeHtml(version.id)}">${escapeHtml(version.name)} — ${escapeHtml(formatSavedAt(version.savedAt))}</option>
+        `).join('');
+        if (versions.some(v => v.id === keepId)) select.value = keepId;
+    }
+
+    select.disabled = !versions.length;
+    ['loadVersionBtn', 'deleteVersionBtn'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.disabled = !versions.length;
+    });
+}
+
+function saveCurrentVersion(e) {
+    const button = e?.currentTarget;
+    const versions = getSavedVersions();
+    if (versions.length >= MAX_SAVED_VERSIONS) {
+        giveFeedback(button, 'Limit reached', `You already have ${MAX_SAVED_VERSIONS} saved versions. Tip: choose one in the Saved Versions dropdown and click Delete, then save again.`, 'warning');
+        renderSavedVersions();
+        return;
+    }
+
+    syncActivitiesFromDom();
+    const name = (document.getElementById('topic')?.value || '').trim() || 'Untitled design map';
+    const savedAt = new Date().toISOString();
+    const baseId = 'v-' + Date.now();
+    let versionId = baseId;
+    let suffix = 1;
+    while (versions.some(version => version.id === versionId)) versionId = baseId + '-' + suffix++;
+    const version = {
+        id: versionId,
+        name,
+        savedAt,
+        state: getCurrentState()
+    };
+
+    try {
+        setSavedVersions([version, ...versions]);
+    } catch (err) {
+        console.warn('Unable to save version', err);
+        giveFeedback(button, 'Not saved', 'Unable to save this version. Browser storage may be full or blocked.', 'error');
+        return;
+    }
+
+    renderSavedVersions(version.id);
+    giveFeedback(button, 'Saved', `Saved “${name}” (${formatSavedAt(savedAt)}) in this browser's local storage. Clearing your browser cache will delete it.`);
+}
+
+function getSelectedVersion(button) {
+    const id = document.getElementById('savedVersionsSelect')?.value;
+    const versions = getSavedVersions();
+    const version = versions.find(v => v.id === id);
+    if (!version) {
+        giveFeedback(button, 'Not found', 'Choose a saved version from the dropdown first.', 'warning');
+        renderSavedVersions();
+        return null;
+    }
+    return { version, versions, label: `“${version.name}” (saved ${formatSavedAt(version.savedAt)})` };
+}
+
+async function loadSelectedVersion(e) {
+    const button = e?.currentTarget;
+    const selected = getSelectedVersion(button);
+    if (!selected) return;
+    const { version, label } = selected;
+
+    const confirmed = await showConfirmDialog({
+        title: 'Load this saved version?',
+        message: `${label} will replace what is currently on the Input page.`,
+        confirmLabel: 'Load'
+    });
+    if (!confirmed) return;
+    closeOutputEditor();
+    if (!applyState(version.state)) {
+        giveFeedback(button, 'Not loaded', 'Unable to load this saved version.', 'error');
+        return;
+    }
+    saveState();
+    updateValidationWarnings();
+    updateCharts(getFilledActivities());
+    giveFeedback(button, 'Loaded', `Loaded ${label} into the Input page.`);
+}
+
+async function deleteSelectedVersion(e) {
+    const button = e?.currentTarget;
+    const selected = getSelectedVersion(button);
+    if (!selected) return;
+    const { version, label } = selected;
+
+    const confirmed = await showConfirmDialog({
+        title: 'Delete this saved version?',
+        message: `${label} will be permanently removed. This cannot be undone.`,
+        confirmLabel: 'Delete',
+        tone: 'danger'
+    });
+    if (!confirmed) return;
+    try {
+        setSavedVersions(getSavedVersions().filter(v => v.id !== version.id));
+    } catch (err) {
+        console.warn('Unable to delete saved version', err);
+        giveFeedback(button, 'Not deleted', 'Unable to delete this saved version.', 'error');
+        return;
+    }
+    renderSavedVersions();
+    giveFeedback(button, 'Deleted', `${label} has been removed. You can now save a new version.`);
+}
+
+function flashButton(button, label, type = 'success') {
+    if (!button) return;
+    if (button.dataset.flashTimer) {
+        clearTimeout(Number(button.dataset.flashTimer));
+    } else {
+        button.dataset.flashOriginal = button.innerHTML;
+        button.style.minWidth = `${button.offsetWidth}px`;
+    }
+    button.innerHTML = `${FEEDBACK_ICONS[type].replace('<svg', '<svg class="btn-flash-icon"')}${escapeHtml(label)}`;
+    button.classList.remove('btn-flash-success', 'btn-flash-warning', 'btn-flash-error');
+    button.classList.add(`btn-flash-${type}`);
+    button.dataset.flashTimer = String(setTimeout(() => {
+        button.innerHTML = button.dataset.flashOriginal;
+        button.classList.remove(`btn-flash-${type}`);
+        button.style.minWidth = '';
+        delete button.dataset.flashOriginal;
+        delete button.dataset.flashTimer;
+    }, FEEDBACK_DURATION));
+}
+
+function showToast(message, type = 'success', anchor = null, title = '') {
+    const toast = createToast(message, type, title);
+    const rect = anchor?.isConnected && anchor.offsetParent !== null ? anchor.getBoundingClientRect() : null;
+    if (rect && rect.bottom > 0 && rect.top < window.innerHeight) {
+        placeToastUnder(toast, anchor);
+    } else {
+        let region = document.getElementById('toastRegion');
+        if (!region) {
+            region = document.createElement('div');
+            region.id = 'toastRegion';
+            region.className = 'toast-region';
+            region.setAttribute('aria-live', 'polite');
+            document.body.appendChild(region);
+        }
+        region.appendChild(toast);
+    }
+    requestAnimationFrame(() => toast.classList.add('visible'));
+    toast.dismissTimer = setTimeout(() => dismissToast(toast), toast.duration);
+}
+
+function createToast(message, type, title) {
+    const duration = type === 'success' ? FEEDBACK_DURATION + 500 : FEEDBACK_DURATION + 2500;
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.setAttribute('role', type === 'success' ? 'status' : 'alert');
+    toast.style.setProperty('--toast-duration', `${duration}ms`);
+    toast.duration = duration;
+    toast.innerHTML = `
+        <span class="toast-icon" aria-hidden="true">${FEEDBACK_ICONS[type]}</span>
+        <div class="toast-body">
+            <p class="toast-title">${escapeHtml(title || TOAST_TITLES[type])}</p>
+            <p class="toast-message">${escapeHtml(message)}</p>
+        </div>
+        <button class="toast-close" type="button" aria-label="Dismiss message">&times;</button>
+        <span class="toast-progress" aria-hidden="true"></span>`;
+    toast.querySelector('.toast-close').addEventListener('click', () => dismissToast(toast));
+    return toast;
+}
+
+function dismissToast(toast) {
+    clearTimeout(toast.dismissTimer);
+    toast.classList.remove('visible');
+    setTimeout(() => {
+        toast.remove();
+        if (toast.anchor?.anchoredToast === toast) toast.anchor.anchoredToast = null;
+    }, 250);
+}
+
+function placeToastUnder(toast, anchor) {
+    anchor.anchoredToast?.remove();
+    toast.classList.add('toast-anchored');
+    toast.anchor = anchor;
+    anchor.anchoredToast = toast;
+    document.body.appendChild(toast);
+
+    // Place just below the button, right-aligned with it, kept inside the viewport,
+    // with the pointer lined up with the centre of the button.
+    const rect = anchor.getBoundingClientRect();
+    const margin = 8;
+    const maxLeft = window.scrollX + document.documentElement.clientWidth - toast.offsetWidth - margin;
+    const left = Math.max(window.scrollX + margin, Math.min(rect.right + window.scrollX - toast.offsetWidth, maxLeft));
+    const caretX = rect.left + window.scrollX + rect.width / 2 - left;
+    toast.style.top = `${rect.bottom + window.scrollY + 12}px`;
+    toast.style.left = `${left}px`;
+    toast.style.setProperty('--caret-x', `${Math.max(18, Math.min(caretX, toast.offsetWidth - 18))}px`);
+}
+
+// In-app replacement for the browser's confirm() dialog. Resolves true when confirmed.
+function showConfirmDialog({ title, message, confirmLabel = 'Confirm', cancelLabel = 'Cancel', tone = 'primary' }) {
+    return new Promise(resolve => {
+        const previousFocus = document.activeElement;
+        const overlay = document.createElement('div');
+        overlay.className = 'app-dialog-overlay';
+        overlay.innerHTML = `
+            <div class="app-dialog app-dialog-${tone}" role="alertdialog" aria-modal="true" aria-labelledby="appDialogTitle" aria-describedby="appDialogMessage">
+                <div class="app-dialog-header">
+                    <span class="app-dialog-icon" aria-hidden="true">${tone === 'danger' ? FEEDBACK_ICONS.error : FEEDBACK_ICONS.warning}</span>
+                    <div class="app-dialog-text">
+                        <h3 class="app-dialog-title" id="appDialogTitle">${escapeHtml(title)}</h3>
+                        <p class="app-dialog-message" id="appDialogMessage">${escapeHtml(message)}</p>
+                    </div>
+                </div>
+                <div class="app-dialog-actions">
+                    <button class="btn btn-ghost btn-small" type="button" data-dialog="cancel">${escapeHtml(cancelLabel)}</button>
+                    <button class="btn ${tone === 'danger' ? 'btn-dialog-danger' : 'btn-primary'} btn-small" type="button" data-dialog="confirm">${escapeHtml(confirmLabel)}</button>
+                </div>
+            </div>`;
+
+        const close = result => {
+            document.removeEventListener('keydown', onKey, true);
+            overlay.classList.remove('visible');
+            setTimeout(() => overlay.remove(), 200);
+            if (previousFocus && typeof previousFocus.focus === 'function') previousFocus.focus();
+            resolve(result);
+        };
+        const onKey = e => {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                close(false);
+            } else if (e.key === 'Tab') {
+                // Keep keyboard focus inside the dialog.
+                const buttons = Array.from(overlay.querySelectorAll('button'));
+                const index = buttons.indexOf(document.activeElement);
+                e.preventDefault();
+                buttons[(index + (e.shiftKey ? buttons.length - 1 : 1)) % buttons.length].focus();
+            }
+        };
+
+        overlay.addEventListener('click', e => {
+            if (e.target === overlay) close(false);
+            const action = e.target.closest('[data-dialog]')?.dataset.dialog;
+            if (action) close(action === 'confirm');
+        });
+        document.addEventListener('keydown', onKey, true);
+        document.body.appendChild(overlay);
+        requestAnimationFrame(() => overlay.classList.add('visible'));
+        overlay.querySelector(tone === 'danger' ? '[data-dialog="cancel"]' : '[data-dialog="confirm"]').focus();
+    });
+}
+
+// In-app replacement for the browser's title tooltips. Any element with data-tooltip gets one.
+let tooltipEl = null;
+let tooltipTarget = null;
+
+function initTooltips() {
+    tooltipEl = document.createElement('div');
+    tooltipEl.className = 'app-tooltip';
+    tooltipEl.id = 'appTooltip';
+    tooltipEl.setAttribute('role', 'tooltip');
+    document.body.appendChild(tooltipEl);
+
+    const findTarget = node => node?.closest?.('[data-tooltip]') || null;
+    document.addEventListener('mouseover', e => {
+        const target = findTarget(e.target);
+        if (target) showTooltip(target);
+    });
+    document.addEventListener('mouseout', e => {
+        if (tooltipTarget && !tooltipTarget.contains(e.relatedTarget)) hideTooltip();
+    });
+    document.addEventListener('focusin', e => {
+        const target = findTarget(e.target);
+        if (target) showTooltip(target);
+    });
+    document.addEventListener('focusout', hideTooltip);
+    document.addEventListener('click', hideTooltip);
+    window.addEventListener('scroll', hideTooltip, true);
+    window.addEventListener('resize', hideTooltip);
+}
+
+function showTooltip(target) {
+    const text = target.dataset.tooltip;
+    if (!tooltipEl || !text) return;
+    tooltipTarget = target;
+    target.setAttribute('aria-describedby', tooltipEl.id);
+    tooltipEl.textContent = text;
+    tooltipEl.classList.remove('below');
+
+    // Centre above the element; flip below if there is no room, and keep inside the viewport.
+    const rect = target.getBoundingClientRect();
+    const margin = 8;
+    const width = tooltipEl.offsetWidth;
+    const height = tooltipEl.offsetHeight;
+    const viewportWidth = document.documentElement.clientWidth;
+    const left = Math.max(margin, Math.min(rect.left + rect.width / 2 - width / 2, viewportWidth - width - margin));
+    let top = rect.top - height - 10;
+    if (top < margin) {
+        top = rect.bottom + 10;
+        tooltipEl.classList.add('below');
+    }
+    tooltipEl.style.left = `${left + window.scrollX}px`;
+    tooltipEl.style.top = `${top + window.scrollY}px`;
+    tooltipEl.style.setProperty('--arrow-x', `${rect.left + rect.width / 2 - left}px`);
+    tooltipEl.classList.add('visible');
+}
+
+function hideTooltip() {
+    if (!tooltipEl) return;
+    tooltipEl.classList.remove('visible');
+    tooltipTarget?.removeAttribute('aria-describedby');
+    tooltipTarget = null;
+}
+
+function giveFeedback(button, label, message, type = 'success') {
+    flashButton(button, label, type);
+    if (message) showToast(message, type, button, label);
 }
 
 function updateCharCounters(scope) {
@@ -622,6 +1172,8 @@ function updateCharCounters(scope) {
 }
 
 function switchTab(tabName) {
+    cancelActivityDrag?.();
+    if (tabName !== 'output') closeOutputEditor();
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
 
@@ -629,6 +1181,11 @@ function switchTab(tabName) {
     const activeContent = document.getElementById(tabName);
     if (activeTab) activeTab.classList.add('active');
     if (activeContent) activeContent.classList.add('active');
+    document.querySelectorAll('.tab').forEach(tab => {
+        const active = tab === activeTab;
+        tab.setAttribute('aria-selected', String(active));
+        tab.tabIndex = active ? 0 : -1;
+    });
     document.body.classList.toggle('output-open', tabName === 'output');
     updateLessonSummaryStrip();
     if (tabName === 'output') {
@@ -651,12 +1208,13 @@ function switchTab(tabName) {
     }
 }
 
-function generateMap() {
+function generateMap(e) {
+    const button = e?.currentTarget;
     syncActivitiesFromDom();
     const filled = getFilledActivities();
 
     if (filled.length === 0) {
-        alert('Please fill in at least one activity with:\n- Interaction Type\n- Active Learning Process\n- Activity Details');
+        giveFeedback(button, 'Not generated', 'Please fill in at least one activity with:\n• Interaction Type\n• Active Learning Process\n• Activity Details', 'warning');
         return;
     }
 
@@ -665,10 +1223,15 @@ function generateMap() {
     renderMap(filled, meta);
     updateCharts(filled);
     switchTab('output');
+    showToast(`Design map generated with ${filled.length} ${filled.length === 1 ? 'activity' : 'activities'}.`, 'success', null, 'Design map generated');
 }
 
 function getFilledActivities() {
-    return activities.filter(a => a.interaction && a.alp && a.details);
+    return activities.filter(a =>
+        interactionTypes.some(type => type.value === a.interaction) &&
+        alpStrategies.some(strategy => strategy.value === a.alp) &&
+        String(a.details || '').trim()
+    );
 }
 
 function syncActivitiesFromDom() {
@@ -682,7 +1245,7 @@ function syncActivitiesFromDom() {
             interaction: getValue('interaction'),
             alp: getValue('alp'),
             keyApp: getValue('keyApp'),
-            time: getValue('time') || '5',
+            time: getValue('time'),
             details: getValue('details'),
             tech: getValue('tech')
         };
@@ -695,7 +1258,7 @@ function getMetaFromInputs() {
     return {
         topic: document.getElementById('topic')?.value || 'Lesson Design Map',
         level: document.getElementById('level')?.value || '',
-        duration: document.getElementById('duration')?.value || 60,
+        duration: document.getElementById('duration')?.value || '',
         studentProfile: document.getElementById('studentProfile')?.value || '',
         learningOutcomes: document.getElementById('learningOutcomes')?.value || '',
         prerequisiteKnowledge: document.getElementById('prerequisiteKnowledge')?.value || '',
@@ -727,6 +1290,7 @@ function updateLessonSummaryStrip() {
 }
 
 function renderOutputEmptyState() {
+    cancelActivityDrag?.();
     const container = document.getElementById('designMapContainer');
     if (!container) return;
     container.innerHTML = `
@@ -739,17 +1303,19 @@ function renderOutputEmptyState() {
     `;
 }
 
-function renderMap(filledActivities, meta) {
+function renderMap(filledActivities, meta, { animate = true } = {}) {
+    cancelActivityDrag?.();
     const container = document.getElementById('designMapContainer');
+    // Re-renders of a map that is already on screen (drag, editor edits) skip the
+    // entrance animation and keep the horizontal scroll position, so nothing blinks.
+    container.classList.toggle('map-static', !animate);
+    const previousScrollLeft = container.querySelector('.activities-grid')?.scrollLeft || 0;
 
     const orderedActivities = [...filledActivities].sort((a, b) => a.id - b.id);
 
-    const totalTime = orderedActivities.reduce((sum, activity) => {
-        const time = Math.max(0, parseInt(activity.time, 10) || 0);
-        return sum + time;
-    }, 0);
-    const plannedDuration = parseInt(meta.duration, 10);
-    const hasDurationMismatch = Number.isFinite(plannedDuration) && plannedDuration >= 0 && plannedDuration !== totalTime;
+    const totalTime = orderedActivities.reduce((sum, activity) => sum + activityMinutes(activity), 0);
+    const plannedDuration = meta.duration === '' ? NaN : Number(meta.duration);
+    const hasDurationMismatch = Number.isFinite(plannedDuration) && plannedDuration >= 0 && Math.abs(plannedDuration - totalTime) > 0.000001;
 
     // Group by interaction type
     const grouped = {
@@ -768,16 +1334,16 @@ function renderMap(filledActivities, meta) {
     let html = `
             <div class="design-map-wrapper stagger-item" style="--delay:0.04s;">
             <div class="design-map-summary stagger-item" style="--delay:0.08s; margin-bottom: 2rem;">
-                <h3 style="font-family: 'DM Serif Display', serif; font-size: 1.5rem; color: var(--primary);">${meta.topic}</h3>
+                <h3 style="font-family: 'DM Serif Display', serif; font-size: 1.5rem; color: var(--primary);">${escapeHtml(meta.topic)}</h3>
                 <p style="color: #0f172a; margin-top: 0.5rem;">
-                    ${meta.level ? `<strong>Level:</strong> ${meta.level} | ` : ''}<span class="${hasDurationMismatch ? 'duration-mismatch' : ''}">Duration: ${meta.duration} minutes</span>${hasDurationMismatch ? `<span class="duration-warning">; Activities total: ${totalTime} mins</span>` : ''}
+                    ${meta.level ? `<strong>Level:</strong> ${escapeHtml(meta.level)} | ` : ''}<span class="${hasDurationMismatch ? 'duration-mismatch' : ''}">Duration: ${meta.duration === '' ? 'Not specified' : escapeHtml(meta.duration) + ' minutes'}</span>${hasDurationMismatch ? `<span class="duration-warning">; Activities total: ${totalTime} mins</span>` : ''}
                 </p>
                 <div style="margin-top: 0.75rem; color: var(--text); font-size: 0.95rem; display: grid; gap: 0.35rem;">
-                    ${meta.studentProfile ? `<div><strong>Student profile:</strong> ${meta.studentProfile}</div>` : ''}
-                    ${meta.learningOutcomes ? `<div><strong>Learning outcomes:</strong> ${meta.learningOutcomes}</div>` : ''}
-                    ${meta.prerequisiteKnowledge ? `<div><strong>Prerequisite knowledge:</strong> ${meta.prerequisiteKnowledge}</div>` : ''}
-                    ${meta.techIntegration && meta.techIntegration !== 'optional' ? `<div><strong>Level of technology integration:</strong> ${formatTechIntegration(meta.techIntegration)}</div>` : ''}
-                    ${meta.learningIssues ? `<div><strong>Learning issue to be addressed:</strong> ${meta.learningIssues}</div>` : ''}
+                    ${meta.studentProfile ? `<div><strong>Student profile:</strong> ${escapeHtml(meta.studentProfile)}</div>` : ''}
+                    ${meta.learningOutcomes ? `<div><strong>Learning outcomes:</strong> ${escapeHtml(meta.learningOutcomes)}</div>` : ''}
+                    ${meta.prerequisiteKnowledge ? `<div><strong>Prerequisite knowledge:</strong> ${escapeHtml(meta.prerequisiteKnowledge)}</div>` : ''}
+                    ${meta.techIntegration && meta.techIntegration !== 'optional' ? `<div><strong>Level of technology integration:</strong> ${escapeHtml(formatTechIntegration(meta.techIntegration))}</div>` : ''}
+                    ${meta.learningIssues ? `<div><strong>Learning issue to be addressed:</strong> ${escapeHtml(meta.learningIssues)}</div>` : ''}
                 </div>
             </div>
 
@@ -804,22 +1370,22 @@ function renderMap(filledActivities, meta) {
 
     const activityCount = orderedActivities.length || 1;
     const fillClass = activityCount <= 6 ? 'fill-width' : '';
-    html += `<div class="activities-grid ${fillClass}" style="--activity-count:${activityCount};">`;
+    html += `<div class="activities-grid ${fillClass}" tabindex="0" role="region" aria-label="Lesson activity map. Scroll horizontally to view all activities when needed." style="--activity-count:${activityCount};">`;
 
     orderedActivities.forEach((act, index) => {
         const rawKeyAppLabel = keyApplications.find(k => k.value === act.keyApp)?.label || act.keyApp;
-        const keyAppLabel = formatKeyAppLabel(rawKeyAppLabel);
+        const keyAppLabel = formatKeyAppLabel(escapeHtml(rawKeyAppLabel));
         const rowIndex = levels.findIndex(level => level.key === act.interaction) + 1;
         const columnIndex = index + 1;
 
         html += `
             <div class="activity-slot" style="grid-row:${rowIndex}; grid-column:${columnIndex};">
-                <div class="activity-box ${act.alp}" data-activity-id="${act.id}">
-                    ${act.time ? `<div class="activity-time-inline">Activity ${act.id} (${act.time} min)</div>` : `<div class="activity-time-inline">Activity ${act.id}</div>`}
+                <div class="activity-box ${escapeAttribute(act.alp)}" data-activity-id="${escapeAttribute(act.id)}" role="button" tabindex="0" aria-label="Edit Activity ${escapeAttribute(act.id)}">
+                    ${act.time ? `<div class="activity-time-inline">Activity ${escapeHtml(act.id)} (${escapeHtml(act.time)} min)</div>` : `<div class="activity-time-inline">Activity ${escapeHtml(act.id)}</div>`}
                     ${keyAppLabel ? `<div class="activity-alp-tag"><span class="alp-text">${keyAppLabel}</span></div>` : ''}
                     <div class="activity-title"></div>
-                    <div class="activity-details">${act.details}</div>
-                    ${act.tech ? `<div class="activity-tech">[Tool]: ${act.tech}</div>` : ''}
+                    <div class="activity-details">${escapeHtml(act.details)}</div>
+                    ${act.tech ? `<div class="activity-tech">[Tool]: ${escapeHtml(act.tech)}</div>` : ''}
                 </div>
             </div>
         `;
@@ -850,6 +1416,10 @@ function renderMap(filledActivities, meta) {
 
     html += '</div>';
     container.innerHTML = html;
+    if (!animate && previousScrollLeft) {
+        const grid = container.querySelector('.activities-grid');
+        if (grid) grid.scrollLeft = previousScrollLeft;
+    }
     requestAnimationFrame(() => updateArrowsFromDom(orderedActivities, levels));
     bindOutputInteractions();
     updateValidationWarnings();
@@ -859,9 +1429,10 @@ function updateValidationWarnings() {
     const inputWarning = document.getElementById('inputWarning');
     const outputWarning = document.getElementById('outputWarning');
     const missingIds = [];
+    const completeActivities = new Set(getFilledActivities());
 
     activities.forEach(activity => {
-        if (!activity.interaction || !activity.alp || !activity.details) {
+        if (!completeActivities.has(activity)) {
             missingIds.push(activity.id);
         }
     });
@@ -896,6 +1467,12 @@ function bindOutputInteractions() {
     boxes.forEach(box => {
         box.addEventListener('pointerdown', handleActivityDragStart);
         box.addEventListener('click', handleActivityClickOutput);
+        box.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                openOutputEditor(Number(box.dataset.activityId));
+            }
+        });
     });
 }
 
@@ -911,16 +1488,20 @@ function handleActivityClickOutput(e) {
 }
 
 function handleActivityDragStart(e) {
+    if ((e.button !== undefined && e.button !== 0) || e.isPrimary === false) return;
+    cancelActivityDrag?.();
     const box = e.currentTarget;
     const id = parseInt(box.dataset.activityId, 10);
     if (!id) return;
 
     const startY = e.clientY;
     const startX = e.clientX;
+    box.dataset.dragged = 'false';
     box.classList.add('dragging');
     box.setPointerCapture(e.pointerId);
 
     const onMove = moveEvent => {
+        if (moveEvent.pointerId !== undefined && moveEvent.pointerId !== e.pointerId) return;
         const dy = moveEvent.clientY - startY;
         box.style.transform = `translateY(${dy}px)`;
         if (Math.abs(dy) > 4 || Math.abs(moveEvent.clientX - startX) > 4) {
@@ -928,13 +1509,33 @@ function handleActivityDragStart(e) {
         }
     };
 
-    const onUp = upEvent => {
-        box.releasePointerCapture(upEvent.pointerId);
+    const cleanup = () => {
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        document.removeEventListener('pointercancel', onCancel);
+        box.removeEventListener('lostpointercapture', onCancel);
+        window.removeEventListener('blur', onCancel);
+        cancelActivityDrag = null;
         box.classList.remove('dragging');
         box.style.transform = '';
+        box.dataset.dragged = 'false';
+        try {
+            if (box.hasPointerCapture?.(e.pointerId) !== false) box.releasePointerCapture(e.pointerId);
+        } catch (err) {
+            // The browser may already have released a cancelled pointer.
+        }
+    };
+    const onCancel = event => {
+        if (event.pointerId !== undefined && event.pointerId !== e.pointerId) return;
+        cleanup();
+    };
+    const onUp = upEvent => {
+        if (upEvent.pointerId !== undefined && upEvent.pointerId !== e.pointerId) return;
+        const dragged = box.dataset.dragged === 'true';
+        cleanup();
 
         const grid = document.querySelector('.activities-grid');
-        if (grid && box.dataset.dragged === 'true') {
+        if (grid && dragged) {
             const rect = grid.getBoundingClientRect();
             const rowH = rect.height / 4;
             const y = Math.min(rect.bottom - 1, Math.max(rect.top + 1, upEvent.clientY));
@@ -943,15 +1544,14 @@ function handleActivityDragStart(e) {
             updateActivityField(id, 'interaction', rowMap[rowIndex]);
             refreshOutputMap();
         }
-
-        box.dataset.dragged = 'false';
-
-        document.removeEventListener('pointermove', onMove);
-        document.removeEventListener('pointerup', onUp);
     };
 
+    cancelActivityDrag = cleanup;
     document.addEventListener('pointermove', onMove);
     document.addEventListener('pointerup', onUp);
+    document.addEventListener('pointercancel', onCancel);
+    box.addEventListener('lostpointercapture', onCancel);
+    window.addEventListener('blur', onCancel);
 }
 
 function refreshOutputMap() {
@@ -959,10 +1559,12 @@ function refreshOutputMap() {
     updateCharts(filled);
     if (!filled.length) {
         renderOutputEmptyState();
-        closeOutputEditor();
+        // Keep the selected draft editable when a required field is temporarily
+        // empty (for example while replacing the last activity's description).
+        if (!activities.some(activity => activity.id === selectedActivityId)) closeOutputEditor();
         return;
     }
-    renderMap(filled, getMetaFromInputs());
+    renderMap(filled, getMetaFromInputs(), { animate: false });
 }
 
 function openOutputEditor(activityId) {
@@ -974,8 +1576,8 @@ function openOutputEditor(activityId) {
     selectedActivityId = activityId;
     editor.classList.add('active');
     editor.setAttribute('aria-hidden', 'false');
-    outputEditorAddMode = false;
-    updateOutputEditorCloseTitle();
+    editor.removeAttribute('inert');
+    showOutputEditorErrors([]);
     const titleEl = document.getElementById('outputEditorTitle');
     if (titleEl) {
         titleEl.textContent = `(Activity ${activityId})`;
@@ -987,57 +1589,135 @@ function openOutputEditor(activityId) {
     document.getElementById('editorDetails').value = activity.details || '';
     document.getElementById('editorKeyApp').value = activity.keyApp || '';
     document.getElementById('editorTech').value = activity.tech || '';
+    document.getElementById('editorInteraction').focus({ preventScroll: true });
 }
 
 function closeOutputEditor() {
     const editor = document.getElementById('outputEditor');
     if (!editor) return;
+    const activityId = selectedActivityId;
+    const restoreFocus = editor.contains(document.activeElement);
     selectedActivityId = null;
-    outputEditorAddMode = false;
-    updateOutputEditorCloseTitle();
+    showOutputEditorErrors([]);
     editor.classList.remove('active');
     editor.setAttribute('aria-hidden', 'true');
+    editor.setAttribute('inert', '');
+    if (restoreFocus) {
+        const card = document.querySelector(`.activity-box[data-activity-id="${activityId}"]`);
+        (card || document.querySelector('.tab.active'))?.focus({ preventScroll: true });
+    }
 }
 
 
-function handleEditorChange(e) {
-    if (!selectedActivityId) return;
-    const fieldMap = {
-        editorInteraction: 'interaction',
-        editorAlp: 'alp',
-        editorTime: 'time',
-        editorDetails: 'details',
-        editorKeyApp: 'keyApp',
-        editorTech: 'tech'
-    };
+function handleEditorChange() {
+    if (document.getElementById('outputEditorError')?.classList.contains('visible')) {
+        showOutputEditorErrors(getOutputEditorErrors());
+    }
+    // Field values remain in the editor until an explicit action is chosen.
+}
 
-    const field = fieldMap[e.target.id];
-    if (!field) return;
-    updateActivityField(selectedActivityId, field, e.target.value);
+function validateOutputEditorAction(button, failureLabel) {
+    if (!selectedActivityId || !document.getElementById('outputEditor')?.classList.contains('active')) return null;
+    const errors = getOutputEditorErrors();
+    showOutputEditorErrors(errors);
+    if (errors.length) {
+        document.getElementById(errors[0].id)?.focus();
+        giveFeedback(button, failureLabel, errors.map(error => error.message).join(' '), 'warning');
+        return null;
+    }
+    return {
+        interaction: document.getElementById('editorInteraction').value,
+        alp: document.getElementById('editorAlp').value,
+        time: document.getElementById('editorTime').value,
+        details: document.getElementById('editorDetails').value.trim(),
+        keyApp: document.getElementById('editorKeyApp').value,
+        tech: document.getElementById('editorTech').value
+    };
+}
+
+function handleEditorConfirmChanges() {
+    const activityData = validateOutputEditorAction(document.getElementById('outputEditorConfirm'), 'Not changed');
+    if (!activityData) return;
+    const activityId = selectedActivityId;
+    const activity = activities.find(item => item.id === activityId);
+    const inputItem = document.querySelector(`.activity-item[data-id="${activityId}"]`);
+    if (!activity || !inputItem) {
+        showToast('The selected activity is no longer available. Select an activity again.', 'warning', null, 'Not changed');
+        return;
+    }
+    // Commit all fields together. Typing never reaches the lesson or autosave.
+    Object.assign(activity, activityData);
+    Object.entries(activityData).forEach(([field, value]) => {
+        const control = inputItem.querySelector(`[data-field="${field}"]`);
+        if (control) control.value = value;
+    });
+    updateCharCounters(inputItem);
+    saveState();
     refreshOutputMap();
+    closeOutputEditor();
+    document.querySelector(`.activity-box[data-activity-id="${activityId}"]`)?.focus({ preventScroll: true });
+    showToast('Changes to Activity ' + activityId + ' confirmed in Input and the Design Map.', 'success', null, 'Changes confirmed');
 }
 
 function handleEditorAddActivity() {
-    if (!selectedActivityId) {
-        addActivity();
-        renumberActivities();
-        const lastId = activities.length;
-        if (lastId) {
-            openOutputEditor(lastId);
-        }
-        outputEditorAddMode = true;
-        updateOutputEditorCloseTitle();
-        refreshOutputMap();
+    const activityData = validateOutputEditorAction(document.getElementById('outputEditorAdd'), 'Not added');
+    if (!activityData) return;
+    const newId = insertActivityAfterSelected(selectedActivityId, activityData);
+    if (!newId) {
+        showToast('The original activity is no longer available. Close the editor and select an activity again.', 'warning', null, 'Not added');
         return;
     }
-    insertActivityAfterSelected(selectedActivityId);
+    closeOutputEditor();
+    document.querySelector(`.activity-box[data-activity-id="${newId}"]`)?.focus({ preventScroll: true });
+    showToast('Activity ' + newId + ' added to Input and the Design Map.', 'success', null, 'Activity added');
+}
+
+function getOutputEditorErrors() {
+    const errors = [];
+    [
+        ['editorInteraction', 'Interaction Type'],
+        ['editorAlp', 'Active Learning Process'],
+        ['editorDetails', 'Activity Details']
+    ].forEach(([id, label]) => {
+        if (!document.getElementById(id).value.trim()) errors.push({ id, message: label + ' is required.' });
+    });
+    const time = document.getElementById('editorTime');
+    if (time.validity.badInput || !isValidMinutes(time.value)) {
+        errors.push({ id: 'editorTime', message: 'Time must be a non-negative number of minutes.' });
+    }
+    if (document.getElementById('editorDetails').value.length > 115) {
+        errors.push({ id: 'editorDetails', message: 'Activity Details must be within 115 characters.' });
+    }
+    if (document.getElementById('editorTech').value.length > 25) {
+        errors.push({ id: 'editorTech', message: 'Tech Tool must be within 25 characters.' });
+    }
+    return errors;
+}
+
+function showOutputEditorErrors(errors) {
+    const editor = document.getElementById('outputEditor');
+    editor?.querySelectorAll('[aria-invalid]').forEach(field => {
+        field.removeAttribute('aria-invalid');
+        field.removeAttribute('aria-describedby');
+    });
+    const warning = document.getElementById('outputEditorError');
+    if (!warning) return;
+    warning.textContent = errors.map(error => error.message).join(' ');
+    warning.classList.toggle('visible', errors.length > 0);
+    errors.forEach(error => {
+        const field = document.getElementById(error.id);
+        field?.setAttribute('aria-invalid', 'true');
+        field?.setAttribute('aria-describedby', warning.id);
+    });
 }
 
 function handleEditorDeleteActivity() {
     if (!selectedActivityId) return;
+    const deletedId = selectedActivityId;
     deleteActivityById(selectedActivityId);
     closeOutputEditor();
     refreshOutputMap();
+    showToast(`Activity ${deletedId} has been removed from the map.`, 'success', null, 'Activity deleted');
 }
 
 function deleteActivityById(activityId) {
@@ -1051,15 +1731,15 @@ function deleteActivityById(activityId) {
     refreshOutputMap();
 }
 
-function insertActivityAfterSelected(activityId) {
+function insertActivityAfterSelected(activityId, activityData) {
     const container = document.getElementById('activitiesContainer');
-    if (!container) return;
+    if (!container || !activityData?.interaction || !activityData?.alp || !activityData?.details?.trim()) return null;
     const anchor = container.querySelector(`.activity-item[data-id="${activityId}"]`);
-    if (!anchor) return;
+    if (activityId != null && !anchor) return null;
 
-    addActivity();
+    addActivity(activityData);
     const newItem = container.lastElementChild;
-    if (newItem && newItem !== anchor) {
+    if (anchor && newItem && newItem !== anchor) {
         if (anchor.nextSibling) {
             container.insertBefore(newItem, anchor.nextSibling);
         } else {
@@ -1073,21 +1753,7 @@ function insertActivityAfterSelected(activityId) {
     refreshOutputMap();
 
     const newIndex = Array.from(container.querySelectorAll('.activity-item')).indexOf(newItem) + 1;
-    if (newIndex) {
-        openOutputEditor(newIndex);
-        outputEditorAddMode = true;
-        updateOutputEditorCloseTitle();
-    }
-}
-
-function updateOutputEditorCloseTitle() {
-    const closeBtn = document.getElementById('outputEditorClose');
-    if (!closeBtn) return;
-    if (outputEditorAddMode) {
-        closeBtn.title = 'Close to add activity.';
-    } else {
-        closeBtn.removeAttribute('title');
-    }
+    return newIndex || null;
 }
 
 function updateActivityField(activityId, field, value) {
@@ -1193,7 +1859,7 @@ function updateCharts(filledActivities) {
     const keyAppTotals = Object.fromEntries(keyApplications.map(app => [app.value, 0]));
 
     filledActivities.forEach(activity => {
-        const time = Math.max(0, parseInt(activity.time, 10) || 0);
+        const time = activityMinutes(activity);
         if (alpTotals[activity.alp] !== undefined) {
             alpTotals[activity.alp] += time;
         }
@@ -1244,7 +1910,9 @@ function applyPieChart(chartEl, slices) {
         currentAngle = end;
         return `${slice.color} ${start}deg ${end}deg`;
     });
-    chartEl.style.background = `conic-gradient(${gradientStops.join(', ')})`;
+    chartEl.style.background = total > 0 ? `conic-gradient(${gradientStops.join(', ')})` : '#f3f4f6';
+    chartEl.setAttribute('role', 'img');
+    chartEl.setAttribute('aria-label', total > 0 ? 'Time distribution; values are listed in the legend.' : 'No timed activities for this chart.');
     chartEl._slices = slices.map(slice => ({ ...slice }));
 
     slices.forEach(slice => {
@@ -1281,13 +1949,15 @@ function applyPieChart(chartEl, slices) {
 function updateLegendValues(slices, chartSelector) {
     const chart = document.querySelector(chartSelector)?.closest('.chart-card');
     if (!chart) return;
+    const total = slices.reduce((sum, slice) => sum + slice.value, 0);
 
     slices.forEach(slice => {
         const item = chart.querySelector(`.chart-legend-item[data-key="${slice.key}"]`);
         if (!item) return;
         const valueEl = item.querySelector('.legend-value');
         if (!valueEl) return;
-        valueEl.textContent = '';
+        const percent = total > 0 ? (slice.value / total * 100).toFixed(1) : '0.0';
+        valueEl.textContent = slice.value + ' min (' + percent + '%)';
     });
 }
 
@@ -1443,7 +2113,9 @@ function normalizeObservationFormState(raw) {
 
 function ensureObservationForm(forceReset = false) {
     const normalized = normalizeObservationFormState(observationForm);
-    if (!forceReset && normalized && (normalized.rows.length || hasObservationFormContent(normalized))) {
+    // An empty-state visit creates no editable rows. Rebuild it when activities
+    // become available, rather than keeping the initial empty form forever.
+    if (!forceReset && normalized && normalized.rows.length) {
         observationForm = normalized;
         return observationForm;
     }
@@ -1479,15 +2151,21 @@ function hasObservationFormContent(form) {
     );
 }
 
-function refreshObservationFormFromInputs() {
+async function refreshObservationFormFromInputs(e) {
+    const button = e?.currentTarget;
     syncActivitiesFromDom();
     if (hasObservationFormContent(observationForm)) {
-        const confirmed = confirm('Refresh the lesson observation form from the current lesson inputs? This will replace any edits made in the observation page.');
+        const confirmed = await showConfirmDialog({
+            title: 'Refresh the observation form?',
+            message: 'The form will be rebuilt from the current lesson inputs. Any edits made on the Lesson Observation Form page will be replaced.',
+            confirmLabel: 'Refresh'
+        });
         if (!confirmed) return;
     }
     observationForm = createObservationFormStateFromInputs();
     saveState();
     updateLessonObservationForm();
+    giveFeedback(button, 'Refreshed', 'Observation form refreshed from the lesson inputs.');
 }
 
 function updateLessonObservationForm() {
@@ -1773,12 +2451,13 @@ function getKeyAppLabel(value) {
     return keyApplications.find(item => item.value === value)?.label || value;
 }
 
-function copyPromptToClipboard() {
+function copyPromptToClipboard(e) {
+    const button = e?.currentTarget;
     const box = document.getElementById('promptMarkdown');
     if (!box) return;
     const text = box.value || '';
-    const onSuccess = () => showCopyStatus('Copied to clipboard.', true);
-    const onFailure = () => showCopyStatus('Unable to copy. Please select and copy manually.', false);
+    const onSuccess = () => giveFeedback(button, 'Copied', 'Lesson plan prompt copied to clipboard.');
+    const onFailure = () => giveFeedback(button, 'Copy failed', 'Unable to copy. Please select and copy the prompt manually.', 'error');
 
     if (navigator.clipboard && window.isSecureContext) {
         navigator.clipboard.writeText(text).then(onSuccess).catch(onFailure);
@@ -1803,17 +2482,6 @@ function copyPromptToClipboard() {
     window.getSelection()?.removeAllRanges();
 }
 
-function showCopyStatus(message, success) {
-    const status = document.getElementById('copyStatus');
-    if (!status) return;
-    status.textContent = message;
-    status.classList.toggle('visible', Boolean(success));
-    setTimeout(() => {
-        status.textContent = '';
-        status.classList.remove('visible');
-    }, 2400);
-}
-
 function wait(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -1832,11 +2500,12 @@ function addExportClassInClone(clonedDoc, selector) {
     }
 }
 
-async function handleJpgDownload() {
+async function handleJpgDownload(e) {
+    const button = e?.currentTarget;
     syncActivitiesFromDom();
     const filled = getFilledActivities();
     if (!filled.length) {
-        alert('Please fill in at least one complete activity before downloading the Design Map image.');
+        giveFeedback(button, 'Not downloaded', 'Please fill in at least one complete activity before downloading the Design Map image.', 'warning');
         return;
     }
 
@@ -1849,7 +2518,7 @@ async function handleJpgDownload() {
         if (activeTab) {
             switchTab(activeTab);
         }
-        alert('Please generate a design map with at least one activity first.');
+        giveFeedback(button, 'Not downloaded', 'Please generate a design map with at least one activity first.', 'warning');
         return;
     }
 
@@ -1882,9 +2551,10 @@ async function handleJpgDownload() {
             onclone: clonedDoc => addExportClassInClone(clonedDoc, '.print-root')
         });
         downloadCanvasAsPng(canvas, 'design-map.png');
+        giveFeedback(button, 'Downloaded', 'Design map image downloaded (design-map.png).');
     } catch (err) {
         console.error('Unable to download design map image', err);
-        alert('Unable to download the Design Map image.');
+        giveFeedback(button, 'Download failed', 'Unable to download the Design Map image.', 'error');
     } finally {
         target.classList.remove('exporting');
         target.style.width = previous.targetWidth;
@@ -1898,11 +2568,12 @@ async function handleJpgDownload() {
     }
 }
 
-async function handleChartsDownload() {
+async function handleChartsDownload(e) {
+    const button = e?.currentTarget;
     syncActivitiesFromDom();
     const filled = getFilledActivities();
     if (!filled.length) {
-        alert('Please fill in at least one complete activity before downloading the charts.');
+        giveFeedback(button, 'Not downloaded', 'Please fill in at least one complete activity before downloading the charts.', 'warning');
         return;
     }
 
@@ -1917,12 +2588,13 @@ async function handleChartsDownload() {
         if (activeTab) {
             switchTab(activeTab);
         }
-        alert('Charts are not ready to download yet.');
+        giveFeedback(button, 'Not downloaded', 'Charts are not ready to download yet.', 'warning');
         return;
     }
 
-    const cleanup = preparePieChartsForDownload(target);
+    let cleanup = () => {};
     try {
+        cleanup = preparePieChartsForDownload(target);
         target.classList.add('exporting');
         const canvas = await html2canvas(target, {
             backgroundColor: '#ffffff',
@@ -1930,9 +2602,10 @@ async function handleChartsDownload() {
             onclone: clonedDoc => addExportClassInClone(clonedDoc, '#chartsDownloadRoot')
         });
         downloadCanvasAsPng(canvas, 'design-map-charts.png');
+        giveFeedback(button, 'Downloaded', 'Charts image downloaded (design-map-charts.png).');
     } catch (err) {
         console.error('Unable to download charts image', err);
-        alert('Unable to download the charts image.');
+        giveFeedback(button, 'Download failed', 'Unable to download the charts image.', 'error');
     } finally {
         target.classList.remove('exporting');
         cleanup();
@@ -1942,25 +2615,27 @@ async function handleChartsDownload() {
     }
 }
 
-async function handleObservationDocxDownload() {
+async function handleObservationDocxDownload(e) {
+    const button = e?.currentTarget;
     const form = ensureObservationForm();
     updateLessonObservationForm();
 
     if (!form.rows.length) {
-        alert('Please fill in at least one complete activity before downloading the lesson observation form.');
+        giveFeedback(button, 'Not downloaded', 'Please fill in at least one complete activity before downloading the lesson observation form.', 'warning');
         return;
     }
     if (!window.JSZip) {
-        alert('DOCX export is unavailable because JSZip is not loaded.');
+        giveFeedback(button, 'Not available', 'DOCX export is unavailable because JSZip is not loaded.', 'error');
         return;
     }
 
     try {
         const blob = await buildObservationDocxBlob(form);
         downloadBlob(blob, 'lesson-observation-form.docx');
+        giveFeedback(button, 'Downloaded', 'Lesson observation form downloaded (lesson-observation-form.docx).');
     } catch (err) {
         console.error('Unable to generate lesson observation DOCX', err);
-        alert('Unable to generate the lesson observation DOCX file.');
+        giveFeedback(button, 'Download failed', 'Unable to generate the lesson observation DOCX file.', 'error');
     }
 }
 
@@ -2264,7 +2939,9 @@ function buildWordParagraph(text, options = {}) {
 }
 
 function xmlEscape(value) {
-    return String(value || '')
+    return String(value ?? '')
+        // XML 1.0 cannot contain these controls or unpaired surrogate values.
+        .replace(/[^\u0009\u000A\u000D\u0020-\uD7FF\uE000-\uFFFD\u{10000}-\u{10FFFF}]/gu, '')
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
@@ -2283,41 +2960,52 @@ function downloadBlob(blob, fileName) {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-async function handlePptxDownload() {
+async function handlePptxDownload(e) {
+    const button = e?.currentTarget;
     const activeTab = document.querySelector('.tab.active')?.getAttribute('data-tab');
+    syncActivitiesFromDom();
     switchTab('output');
 
-    setTimeout(async () => {
-        if (!window.PptxGenJS) return;
+    await wait(100);
+    if (!window.PptxGenJS) {
+        giveFeedback(button, 'Not available', 'PPTX export is unavailable because the PPTX library did not load.', 'error');
+        if (activeTab) switchTab(activeTab);
+        return;
+    }
 
-        const filled = activities.filter(a => a.interaction && a.alp && a.details);
-        if (!filled.length) {
-            alert('Please generate a design map with at least one activity first.');
-            if (activeTab) switchTab(activeTab);
-            return;
-        }
+    const filled = getFilledActivities();
+    if (!filled.length) {
+        giveFeedback(button, 'Not downloaded', 'Please generate a design map with at least one activity first.', 'warning');
+        if (activeTab) switchTab(activeTab);
+        return;
+    }
 
-        const meta = {
-            topic: document.getElementById('topic')?.value || 'Lesson Design Map',
-            level: document.getElementById('level')?.value || '',
-            duration: document.getElementById('duration')?.value || '',
-            studentProfile: document.getElementById('studentProfile')?.value || '',
-            learningOutcomes: document.getElementById('learningOutcomes')?.value || '',
-            prerequisiteKnowledge: document.getElementById('prerequisiteKnowledge')?.value || '',
-            learningIssues: document.getElementById('learningIssues')?.value || '',
-            techIntegration: document.getElementById('techIntegration')?.value || ''
-        };
+    const meta = {
+        topic: document.getElementById('topic')?.value || 'Lesson Design Map',
+        level: document.getElementById('level')?.value || '',
+        duration: document.getElementById('duration')?.value || '',
+        studentProfile: document.getElementById('studentProfile')?.value || '',
+        learningOutcomes: document.getElementById('learningOutcomes')?.value || '',
+        prerequisiteKnowledge: document.getElementById('prerequisiteKnowledge')?.value || '',
+        learningIssues: document.getElementById('learningIssues')?.value || '',
+        techIntegration: document.getElementById('techIntegration')?.value || ''
+    };
 
+    try {
         const pptx = new window.PptxGenJS();
         pptx.layout = 'LAYOUT_WIDE';
         buildEditableDesignMapSlides(pptx, filled, meta);
         await buildChartsSlide(pptx, activeTab);
-        pptx.writeFile({ fileName: 'design-map-editable.pptx' });
+        await pptx.writeFile({ fileName: 'design-map-editable.pptx' });
+        giveFeedback(button, 'Downloaded', 'Editable PPTX downloaded (design-map-editable.pptx).');
+    } catch (err) {
+        console.error('Unable to download PPTX', err);
+        giveFeedback(button, 'Download failed', 'Unable to create the PPTX file.', 'error');
+    }
 
-        if (activeTab) {
-            switchTab(activeTab);
-        }
-    }, 100);
+    if (activeTab) {
+        switchTab(activeTab);
+    }
 }
 
 function buildEditableDesignMapSlides(pptx, filledActivities, meta) {
@@ -2556,7 +3244,8 @@ function buildDesignMapSlide(pptx, filledActivities, meta) {
             }
 
             const midX = startX + 0.1;
-            addLine(startX, startY, midX, endY, false);
+            addLine(startX, startY, midX, startY, false);
+            addLine(midX, startY, midX, endY, false);
             addLine(midX, endY, endX, endY, true);
         });
     }
@@ -2626,8 +3315,9 @@ async function buildChartsSlide(pptx, activeTab) {
         return;
     }
 
-    const cleanup = preparePieChartsForDownload(target);
+    let cleanup = () => {};
     try {
+        cleanup = preparePieChartsForDownload(target);
         target.classList.add('exporting');
         const canvas = await html2canvas(target, {
             backgroundColor: '#ffffff',
